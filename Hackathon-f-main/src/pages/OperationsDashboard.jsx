@@ -18,7 +18,8 @@ import {
   ArrowDownRight,
   Layers,
   Sparkles,
-  MessageSquare
+  MessageSquare,
+  X
 } from "lucide-react";
 import { formatAmount } from "../types";
 
@@ -62,6 +63,78 @@ export default function OperationsDashboard({ view, user, crtEnabled }) {
   // Date filter for invoice history
   const [invoiceDateFilter, setInvoiceDateFilter] = useState("");
 
+  // Workforce & Wages states
+  const [showAddWorkerModal, setShowAddWorkerModal] = useState(false);
+  const [newWorkerName, setNewWorkerName] = useState("");
+  const [newWorkerRole, setNewWorkerRole] = useState("");
+  const [newWorkerWage, setNewWorkerWage] = useState("");
+  const [newWorkerPhone, setNewWorkerPhone] = useState("");
+  const [isSavingWorker, setIsSavingWorker] = useState(false);
+  const [isSavingAttendance, setIsSavingAttendance] = useState(false);
+  const [toastMessage, setToastMessage] = useState(null);
+
+  const triggerToast = (message) => {
+    setToastMessage(message);
+    setTimeout(() => {
+      setToastMessage(null);
+    }, 4500);
+  };
+
+  const loadLocalData = (backendWorkers = []) => {
+    let localWorkers = localStorage.getItem("bizpilot_local_workers");
+    let localAttendance = localStorage.getItem("bizpilot_local_attendance");
+    
+    if (!localWorkers) {
+      const baseline = backendWorkers.length > 0 ? backendWorkers : [
+        { id: "w1", name: "Ravi Kumar", role: "Solar Technician", daily_wage_rate: 1200.0 },
+        { id: "w2", name: "Priya Sharma", role: "Junior Installer", hourly_rate: 150.0 },
+        { id: "w3", name: "Amit Patel", role: "Warehouse Handler", daily_wage_rate: 1000.0 },
+        { id: "w4", name: "Vikram Singh", role: "Safety Supervisor", hourly_rate: 200.0 }
+      ];
+      localStorage.setItem("bizpilot_local_workers", JSON.stringify(baseline));
+      localWorkers = JSON.stringify(baseline);
+    }
+    
+    if (!localAttendance) {
+      const defaultAttendance = [
+        { id: "att_att0", worker_id: "w1", date: "2026-07-01", status: "present", hours_worked: 8.0 },
+        { id: "att_att1", worker_id: "w1", date: "2026-07-02", status: "present", hours_worked: 8.0 },
+        { id: "att_att2", worker_id: "w2", date: "2026-07-01", status: "present", hours_worked: 8.0 },
+        { id: "att_att3", worker_id: "w3", date: "2026-07-01", status: "present", hours_worked: 8.0 },
+        { id: "att_att4", worker_id: "w4", date: "2026-07-01", status: "present", hours_worked: 8.0 }
+      ];
+      localStorage.setItem("bizpilot_local_attendance", JSON.stringify(defaultAttendance));
+      localAttendance = JSON.stringify(defaultAttendance);
+    }
+    
+    return {
+      workers: JSON.parse(localWorkers),
+      attendance: JSON.parse(localAttendance)
+    };
+  };
+
+  const computeWagesSummary = (workers, attendanceLogs) => {
+    return workers.map(w => {
+      const workerLogs = attendanceLogs.filter(log => log.worker_id === w.id);
+      const daysPresent = workerLogs.filter(log => log.status === "present").length;
+      const totalHours = workerLogs.reduce((sum, log) => sum + Number(log.hours_worked || 0), 0);
+      
+      const wagesDue = w.hourly_rate 
+        ? totalHours * w.hourly_rate 
+        : daysPresent * (w.daily_wage_rate || 0);
+        
+      return {
+        id: w.id,
+        name: w.name,
+        role: w.role,
+        daysPresent,
+        totalHours,
+        wagesDue,
+        unpaidWages: 0
+      };
+    });
+  };
+
 
 
   const currency = user?.currency || "INR";
@@ -82,23 +155,34 @@ export default function OperationsDashboard({ view, user, crtEnabled }) {
       const r = await fetch("/api/operations"); 
       if (r.ok) {
         const json = await r.json();
-        setData(json);
+        const synced = loadLocalData(json.workers);
+        setData({
+          ...json,
+          workers: synced.workers,
+          attendance: synced.attendance
+        });
       }
     } catch (err) {
       console.error("Error fetching operations data:", err);
+      const synced = loadLocalData();
+      setData(prev => ({
+        ...prev,
+        workers: synced.workers,
+        attendance: synced.attendance
+      }));
     }
   };
 
   // Load staff wages summary
-  const loadWages = async () => {
-    try {
-      const r = await fetch("/api/attendance/summary?period=month");
-      if (r.ok) {
-        setSummary(await r.json());
-      }
-    } catch (err) {
-      console.error("Error fetching wages summary:", err);
-    }
+  const loadWages = () => {
+    const synced = loadLocalData();
+    const computedSummary = computeWagesSummary(synced.workers, synced.attendance);
+    setSummary(computedSummary);
+    setData(prev => ({
+      ...prev,
+      workers: synced.workers,
+      attendance: synced.attendance
+    }));
   };
 
   // Load daily sales report
@@ -280,24 +364,89 @@ export default function OperationsDashboard({ view, user, crtEnabled }) {
   };
 
   // Attendance log saving
-  const saveAttendance = async (e) => { 
+  const saveAttendance = (e) => { 
     e.preventDefault(); 
-    if (!attendance.workerId) return setNotice("Select a worker.");
-    
-    try {
-      const r = await fetch("/api/attendance", { 
-        method: "POST", 
-        headers: { "Content-Type": "application/json" }, 
-        body: JSON.stringify(attendance) 
-      }); 
-      if (r.ok) {
-        setNotice(`Attendance marked for ${attendance.date}.`); 
-        load();
-        loadWages();
-      }
-    } catch (err) {
-      console.error(err);
+    if (!attendance.workerId) {
+      triggerToast("Select a worker.");
+      return;
     }
+    
+    const localData = loadLocalData();
+    
+    // Prevent duplicate attendance
+    const isDuplicate = localData.attendance.some(
+      log => log.worker_id === attendance.workerId && log.date === attendance.date
+    );
+    
+    if (isDuplicate) {
+      triggerToast("Attendance already recorded for this date.");
+      return;
+    }
+    
+    setIsSavingAttendance(true);
+    
+    setTimeout(() => {
+      // Save attendance record
+      const newLog = {
+        id: `att_${attendance.workerId}_${Date.now()}`,
+        worker_id: attendance.workerId,
+        date: attendance.date,
+        status: attendance.status,
+        hours_worked: attendance.status === "absent" ? 0 : Number(attendance.hoursWorked)
+      };
+      
+      const updatedAttendance = [...localData.attendance, newLog];
+      localStorage.setItem("bizpilot_local_attendance", JSON.stringify(updatedAttendance));
+      
+      setAttendance({
+        ...attendance,
+        workerId: "",
+        status: "present",
+        hoursWorked: 8
+      });
+      
+      setIsSavingAttendance(false);
+      loadWages();
+      triggerToast("Attendance saved successfully.");
+    }, 600); // 600ms loading effect
+  };
+
+  // Add Worker handler
+  const handleAddWorker = (e) => {
+    e.preventDefault();
+    if (!newWorkerName || !newWorkerRole || !newWorkerWage) {
+      triggerToast("Please fill in all required fields.");
+      return;
+    }
+    
+    setIsSavingWorker(true);
+    
+    setTimeout(() => {
+      const localData = loadLocalData();
+      
+      const newWorker = {
+        id: `w_${Date.now()}`,
+        name: newWorkerName.trim(),
+        role: newWorkerRole.trim(),
+        daily_wage_rate: Number(newWorkerWage),
+        phone: newWorkerPhone.trim() || undefined
+      };
+      
+      const updatedWorkers = [...localData.workers, newWorker];
+      localStorage.setItem("bizpilot_local_workers", JSON.stringify(updatedWorkers));
+      
+      // Clear form inputs
+      setNewWorkerName("");
+      setNewWorkerRole("");
+      setNewWorkerWage("");
+      setNewWorkerPhone("");
+      setIsSavingWorker(false);
+      setShowAddWorkerModal(false);
+      
+      // Refresh table and dropdown
+      loadWages();
+      triggerToast(`Worker ${newWorker.name} added successfully.`);
+    }, 800); // 800ms visual loading state
   };
 
   // derived properties for low stock warning
@@ -1019,10 +1168,20 @@ export default function OperationsDashboard({ view, user, crtEnabled }) {
 
           <div className="grid gap-6 lg:grid-cols-[0.8fr_1.2fr]">
             <Card>
-              <h2 className={`font-semibold text-lg mb-4 flex items-center gap-1.5 ${crtEnabled ? phosphorClass : "text-gray-900"}`}>
-                <ClipboardCheck className={crtEnabled ? phosphorClass : "text-teal-700"} />
-                Mark Worker Attendance
-              </h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className={`font-semibold text-lg flex items-center gap-1.5 ${crtEnabled ? phosphorClass : "text-gray-900"}`}>
+                  <ClipboardCheck className={crtEnabled ? phosphorClass : "text-teal-700"} />
+                  Mark Worker Attendance
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => setShowAddWorkerModal(true)}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-3.5 py-1.5 rounded-lg shadow-sm cursor-pointer flex items-center gap-1 transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add Worker</span>
+                </button>
+              </div>
 
               <form onSubmit={saveAttendance} className="space-y-4 font-mono">
                 <div className="space-y-1">
@@ -1078,12 +1237,23 @@ export default function OperationsDashboard({ view, user, crtEnabled }) {
                   </div>
                 </div>
 
-                <button className={`w-full flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-bold uppercase transition-all ${
-                  crtEnabled 
-                    ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500 hover:bg-emerald-500/30" 
-                    : "bg-emerald-500 text-slate-950 hover:bg-emerald-400"
-                }`}>
-                  Save Attendance Log
+                <button 
+                  type="submit"
+                  disabled={isSavingAttendance}
+                  className={`w-full flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-bold uppercase transition-all cursor-pointer ${
+                    crtEnabled 
+                      ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500 hover:bg-emerald-500/30" 
+                      : "bg-emerald-500 text-slate-950 hover:bg-emerald-400 disabled:opacity-50"
+                  }`}
+                >
+                  {isSavingAttendance ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Saving Log...</span>
+                    </>
+                  ) : (
+                    <span>Save Attendance Log</span>
+                  )}
                 </button>
               </form>
             </Card>
@@ -1126,6 +1296,115 @@ export default function OperationsDashboard({ view, user, crtEnabled }) {
                 </table>
               </div>
             </Card>
+          </div>
+        </div>
+      )}
+      {/* Add Worker Modal */}
+      {showAddWorkerModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-fade-in">
+          <div className="bg-white border border-gray-200 w-full max-w-sm rounded-2xl shadow-2xl relative p-6 text-left">
+            <div className="flex items-center justify-between border-b border-gray-150 pb-3 mb-5">
+              <h3 className="font-display font-bold text-base text-gray-900">Add New Worker</h3>
+              <button 
+                type="button" 
+                onClick={() => setShowAddWorkerModal(false)} 
+                className="text-gray-400 hover:text-gray-700 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddWorker} className="space-y-4 font-sans text-xs">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase text-gray-500">Full Name</label>
+                <input
+                  type="text"
+                  required
+                  value={newWorkerName}
+                  onChange={(e) => setNewWorkerName(e.target.value)}
+                  placeholder="e.g. Rajesh Kumar"
+                  className={inputClass}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase text-gray-500">Role / Designation</label>
+                <input
+                  type="text"
+                  required
+                  value={newWorkerRole}
+                  onChange={(e) => setNewWorkerRole(e.target.value)}
+                  placeholder="e.g. Senior Installer"
+                  className={inputClass}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase text-gray-500">Daily Wage (₹)</label>
+                <input
+                  type="number"
+                  required
+                  min="0"
+                  value={newWorkerWage}
+                  onChange={(e) => setNewWorkerWage(e.target.value)}
+                  placeholder="e.g. 1200"
+                  className={inputClass}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase text-gray-500">Phone Number (Optional)</label>
+                <input
+                  type="tel"
+                  value={newWorkerPhone}
+                  onChange={(e) => setNewWorkerPhone(e.target.value)}
+                  placeholder="e.g. +91 98765 43210"
+                  className={inputClass}
+                />
+              </div>
+
+              <div className="flex gap-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => setShowAddWorkerModal(false)}
+                  className="flex-1 bg-gray-100 hover:bg-gray-200 border border-gray-250 text-gray-600 font-bold py-2.5 rounded-xl cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingWorker}
+                  className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl cursor-pointer shadow-md flex items-center justify-center gap-1.5 disabled:opacity-50"
+                >
+                  {isSavingWorker ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Saving...</span>
+                    </>
+                  ) : (
+                    <span>Add Worker</span>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Toast alert popup */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 animate-slide-up">
+          <div className="bg-slate-900/90 border border-indigo-500/30 text-slate-200 px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2.5 max-w-sm backdrop-blur-md">
+            <div className="h-2 w-2 rounded-full bg-emerald-500 animate-ping shrink-0" />
+            <div className="text-xs font-semibold leading-relaxed">
+              {toastMessage}
+            </div>
+            <button
+              onClick={() => setToastMessage(null)}
+              className="p-1 hover:bg-slate-850 rounded text-slate-400 hover:text-white transition-colors ml-auto cursor-pointer"
+            >
+              <X className="w-3 h-3" />
+            </button>
           </div>
         </div>
       )}

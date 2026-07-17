@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { motion } from "motion/react";
 import {
   LayoutDashboard,
   Package,
@@ -24,8 +25,7 @@ import {
   BookOpen,
   Compass,
   MapPin,
-  Info,
-  Tv
+  Info
 } from "lucide-react";
 const themeStyles = {
   cosmic: {
@@ -179,7 +179,12 @@ export default function Layout({ children, user, onLogout, lowStockCount, theme 
       {
     /* Desktop Sidebar */
   }
-      <aside className="hidden lg:flex flex-col w-64 bg-white border-r border-gray-250 p-5 h-screen sticky top-0 z-20 transition-all duration-200 overflow-y-auto scrollbar-none shadow-sm">
+      <motion.aside
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.6, ease: "easeOut" }}
+        className="hidden lg:flex flex-col w-64 bg-white border-r border-gray-250 p-5 h-screen sticky top-0 z-20 transition-all duration-200 overflow-y-auto scrollbar-none shadow-sm"
+      >
         <div className="flex items-center gap-3 px-2 py-4">
           <div className={`${currentTheme.logoBg} p-2.5 rounded-lg shadow-sm transition-all duration-200`}>
             <Sparkles className="w-5 h-5 text-white" />
@@ -252,7 +257,7 @@ export default function Layout({ children, user, onLogout, lowStockCount, theme 
               Log In
             </button>}
         </div>
-      </aside>
+      </motion.aside>
 
       {
     /* Mobile Sidebar overlay */
@@ -342,7 +347,12 @@ export default function Layout({ children, user, onLogout, lowStockCount, theme 
         {
     /* Top Header */
   }
-        <header className="bg-white border-b border-gray-200 sticky top-0 z-20 p-4 flex items-center justify-between shadow-sm transition-all duration-200">
+        <motion.header
+          initial={{ y: -80, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.6, ease: "easeOut" }}
+          className="bg-white border-b border-gray-200 sticky top-0 z-20 p-4 flex items-center justify-between shadow-sm transition-all duration-200"
+        >
           <button
     onClick={() => setSidebarOpen(true)}
     className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 lg:hidden"
@@ -418,18 +428,6 @@ export default function Layout({ children, user, onLogout, lowStockCount, theme 
                 </>}
             </div>
 
-            {/* CRT Display Mode Switch */}
-            <button
-              onClick={onToggleCrt}
-              className={`p-2 rounded-lg border transition-all duration-200 flex items-center gap-1.5 font-medium text-xs px-3 cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 ${
-                crtEnabled
-                  ? "bg-teal-50 text-teal-850 border-teal-350 shadow-sm animate-pulse"
-                  : "bg-white hover:bg-gray-50 border-gray-250 text-gray-600 hover:text-gray-800"
-              }`}
-            >
-              <Tv className="w-4 h-4 shrink-0" />
-              <span className="hidden md:inline">{crtEnabled ? "CRT: ON" : "CRT: OFF"}</span>
-            </button>
 
             {
     /* Interactive Help Guide Trigger Button */
@@ -460,7 +458,7 @@ export default function Layout({ children, user, onLogout, lowStockCount, theme 
                 </div>
               </div>}
           </div>
-        </header>
+        </motion.header>
 
         {
     /* Dynamic Page Stage */

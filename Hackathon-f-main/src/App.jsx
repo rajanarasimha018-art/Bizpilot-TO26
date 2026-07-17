@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { AnimatePresence } from "motion/react";
 import Layout from "./components/Layout";
 import LandingPage from "./pages/LandingPage";
 import Auth from "./pages/Auth";
@@ -14,30 +15,24 @@ import Customers from "./pages/Customers";
 import Backups from "./pages/Backups";
 import Copilot from "./pages/Copilot";
 import OperationsDashboard from "./pages/OperationsDashboard";
+import SplashScreen from "./components/SplashScreen";
 import { auth } from "./googleDrive";
 import { signOut } from "firebase/auth";
+
 export default function App() {
+  const [showSplash, setShowSplash] = useState(() => {
+    return !sessionStorage.getItem("bizpilot_splash_shown");
+  });
+  const handleSplashComplete = () => {
+    setShowSplash(false);
+    sessionStorage.setItem("bizpilot_splash_shown", "true");
+  };
+
   const [user, setUser] = useState(null);
-  const [theme, setTheme] = useState(() => {
-    return localStorage.getItem("bizpilot_theme") || "emerald";
-  });
-  const handleUpdateTheme = (newTheme) => {
-    setTheme(newTheme);
-    localStorage.setItem("bizpilot_theme", newTheme);
-  };
-  const [crtEnabled, setCrtEnabled] = useState(() => {
-    const saved = localStorage.getItem("bizpilot_crt");
-    if (saved !== null) {
-      return saved === "true";
-    }
-    // Default fallback from environment variable
-    return import.meta.env.VITE_DEFAULT_CRT_ENABLED === "true";
-  });
-  const handleToggleCrt = () => {
-    const nextVal = !crtEnabled;
-    setCrtEnabled(nextVal);
-    localStorage.setItem("bizpilot_crt", nextVal ? "true" : "false");
-  };
+  const theme = "emerald";
+  const crtEnabled = false;
+  const handleToggleCrt = () => {};
+  const handleUpdateTheme = () => {};
   const [products, setProducts] = useState([]);
   const [invoices, setInvoices] = useState([]);
   const [transactions, setTransactions] = useState([]);
@@ -247,6 +242,11 @@ export default function App() {
     return products.filter((p) => p.quantity <= p.minStock).length;
   }, [products]);
   return <BrowserRouter>
+      <AnimatePresence>
+        {showSplash && (
+          <SplashScreen onComplete={handleSplashComplete} />
+        )}
+      </AnimatePresence>
       <Routes>
         {
     /* Landing Page Route */
@@ -290,7 +290,7 @@ export default function App() {
       transactions={transactions}
       theme={theme}
       crtEnabled={crtEnabled}
-    />
+     />
               </Layout> : <Navigate to="/auth" replace />}
   />
 

@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { motion } from "motion/react";
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
 import {
   TrendingUp,
@@ -20,7 +21,8 @@ import {
   X,
   FileText,
   Camera,
-  RefreshCw
+  RefreshCw,
+  Loader2
 } from "lucide-react";
 import {
   AreaChart,
@@ -122,6 +124,36 @@ function CountUpAmount({ targetValue, currency }) {
   }, [targetValue]);
 
   return <>{formatAmount(currentValue, currency)}</>;
+}
+
+function CountUpNumber({ targetValue, duration = 1000 }) {
+  const [currentValue, setCurrentValue] = useState(0);
+
+  useEffect(() => {
+    let start = 0;
+    const end = targetValue;
+    if (end === 0) {
+      setCurrentValue(0);
+      return;
+    }
+
+    const stepTime = Math.max(10, Math.floor(duration / 60));
+    const stepValue = end / (duration / stepTime);
+
+    const timer = setInterval(() => {
+      start += stepValue;
+      if (start >= end) {
+        setCurrentValue(end);
+        clearInterval(timer);
+      } else {
+        setCurrentValue(Math.floor(start));
+      }
+    }, stepTime);
+
+    return () => clearInterval(timer);
+  }, [targetValue, duration]);
+
+  return <>{currentValue}</>;
 }
 
 const mockProductDatabase = [
@@ -396,6 +428,12 @@ export default function Dashboard({
   const navigate = useNavigate();
   const dbTheme = dashboardThemeStyles[theme] || dashboardThemeStyles.cosmic;
 
+  const getCardAnimation = (index) => ({
+    initial: { opacity: 0, y: 30, scale: 0.95 },
+    animate: { opacity: 1, y: 0, scale: 1 },
+    transition: { duration: 0.6, ease: "easeOut", delay: index * 0.08 }
+  });
+
   const [showScannerModal, setShowScannerModal] = useState(false);
   const [scannedProduct, setScannedProduct] = useState(null);
   const [scanningProgress, setScanningProgress] = useState(0);
@@ -405,6 +443,7 @@ export default function Dashboard({
   const [flashOn, setFlashOn] = useState(false);
   const [showDemoSelector, setShowDemoSelector] = useState(false);
   const [scannerStatus, setScannerStatus] = useState("Position Barcode in Center");
+  const [scanSuccessFlash, setScanSuccessFlash] = useState(false);
 
   const html5QrCodeRef = useRef(null);
   const progressIntervalRef = useRef(null);
@@ -499,54 +538,116 @@ export default function Dashboard({
     setScannerStatus("Product Not Found");
   };
 
-  const startCameraScanning = () => {
-    if (html5QrCodeRef.current) {
-      try {
-        html5QrCodeRef.current.clear();
-      } catch (e) {}
+  const cleanupScanner = async () => {
+    if (progressIntervalRef.current) {
+      clearInterval(progressIntervalRef.current);
+      progressIntervalRef.current = null;
     }
+    
+    if (html5QrCodeRef.current) {
+      const scanner = html5QrCodeRef.current;
+      html5QrCodeRef.current = null; // Synchronous nulling to prevent duplicate triggers
+      
+      console.log("Scanner Stopped");
+      
+      if (scanner.isScanning) {
+        try {
+          await scanner.stop();
+        } catch (e) {
+          console.error("Error stopping scanner stream:", e);
+        }
+      }
+      
+      if (document.getElementById("dashboard-scanner-reader")) {
+        try {
+          scanner.clear();
+        } catch (e) {
+          console.warn("Error clearing scanner canvas container:", e);
+        }
+      }
+    }
+  };
+
+  const startCameraScanning = () => {
+    cleanupScanner(); // Ensure prior instance is cleaned up
 
     setScannerStatus("Initializing Camera...");
+    console.log("Scanner Started");
+    
     const html5QrCode = new Html5Qrcode("dashboard-scanner-reader");
     html5QrCodeRef.current = html5QrCode;
 
     const qrCodeSuccessCallback = (decodedText) => {
-      setScannerStatus("Scanning...");
+      console.log("Barcode:", decodedText);
+      
+      // Vibrate device
+      if (navigator.vibrate) {
+        navigator.vibrate(200);
+      }
+      
+      // Immediate visual feedback
+      setScanSuccessFlash(true);
+      setScannerStatus(`✓ Barcode Detected: ${decodedText}`);
+      setToastMessage("Barcode scanned successfully!");
+      
+      // Stop scanner synchronously
       if (html5QrCode.isScanning) {
         html5QrCode.stop().then(() => {
-          html5QrCode.clear();
-          html5QrCodeRef.current = null;
-        }).catch(e => console.warn(e));
+          console.log("Scanner Stopped");
+        }).catch(e => console.error(e));
       }
-      handleLookupBarcode(decodedText);
+
+      // Delay modal closure slightly to display green border flash and success state
+      setTimeout(() => {
+        cleanupScanner();
+        setShowScannerModal(false);
+        setIsScanningActive(false);
+        setScanSuccessFlash(false);
+        handleLookupBarcode(decodedText);
+      }, 600);
     };
 
     const config = {
-      fps: 24,
-      qrbox: { width: 260, height: 180 },
+      fps: 10,
+      qrbox: 280,
       formatsToSupport: [
         Html5QrcodeSupportedFormats.EAN_13,
         Html5QrcodeSupportedFormats.EAN_8,
         Html5QrcodeSupportedFormats.UPC_A,
         Html5QrcodeSupportedFormats.UPC_E,
         Html5QrcodeSupportedFormats.CODE_128,
-        Html5QrcodeSupportedFormats.CODE_39
+        Html5QrcodeSupportedFormats.CODE_39,
+        Html5QrcodeSupportedFormats.QR_CODE
       ]
     };
 
-    html5QrCode.start(
-      { facingMode: "environment" },
-      config,
-      qrCodeSuccessCallback
-    )
+    Html5Qrcode.getCameras().then(devices => {
+      if (devices && devices.length > 0) {
+        let backCamera = devices.find(device => 
+          device.label.toLowerCase().includes("back") || 
+          device.label.toLowerCase().includes("rear") || 
+          device.label.toLowerCase().includes("environment")
+        );
+        const cameraId = backCamera ? backCamera.id : devices[devices.length - 1].id;
+        
+        return html5QrCode.start(
+          cameraId,
+          config,
+          qrCodeSuccessCallback
+        );
+      } else {
+        throw new Error("No cameras detected.");
+      }
+    })
     .then(() => {
       setIsScanningActive(true);
       setScanningProgress(100);
       setScannerStatus("Scanning...");
     })
     .catch((err) => {
-      console.warn("Camera start failed, showing manual demo list", err);
-      setScannerStatus("Camera permission denied / No camera available");
+      console.error(err);
+      setScannerStatus("Camera permission denied or camera unavailable. Please check your browser permissions.");
+      setToastMessage("Camera access denied or no camera found.");
       setShowDemoSelector(true);
     });
   };
@@ -559,36 +660,21 @@ export default function Dashboard({
     setShowDemoSelector(false);
   };
 
-  const handleStopScanner = () => {
-    if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
-    if (html5QrCodeRef.current) {
-      if (html5QrCodeRef.current.isScanning) {
-        html5QrCodeRef.current.stop().then(() => {
-          html5QrCodeRef.current.clear();
-          html5QrCodeRef.current = null;
-        }).catch(e => console.warn(e));
-      } else {
-        html5QrCodeRef.current.clear();
-        html5QrCodeRef.current = null;
-      }
-    }
+  const handleStopScanner = async () => {
+    await cleanupScanner();
     setShowScannerModal(false);
     setIsScanningActive(false);
     setScannedProduct(null);
   };
 
   const handleSimulateScan = (barcodeVal) => {
-    if (html5QrCodeRef.current && html5QrCodeRef.current.isScanning) {
-      html5QrCodeRef.current.stop().then(() => {
-        html5QrCodeRef.current.clear();
-        html5QrCodeRef.current = null;
-      }).catch(e => console.warn(e));
-    }
+    cleanupScanner();
 
     setScanningProgress(0);
     setIsScanningActive(true);
     setScannedProduct(null);
-    
+    setShowScannerModal(true);
+
     if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
     progressIntervalRef.current = setInterval(() => {
       setScanningProgress((prev) => {
@@ -603,12 +689,27 @@ export default function Dashboard({
     setTimeout(() => {
       if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
       setIsScanningActive(false);
-      if (barcodeVal === "not_found_123") {
-        setNotFoundBarcode("8909999999999");
-        setShowNotFoundDialog(true);
-      } else {
-        handleLookupBarcode(barcodeVal);
+      
+      // Vibrate device
+      if (navigator.vibrate) {
+        navigator.vibrate(200);
       }
+
+      setScanSuccessFlash(true);
+      setScannerStatus(`✓ Barcode Detected: ${barcodeVal}`);
+      setToastMessage("Barcode scanned successfully!");
+
+      setTimeout(() => {
+        cleanupScanner();
+        setShowScannerModal(false);
+        setScanSuccessFlash(false);
+        if (barcodeVal === "not_found_123") {
+          setNotFoundBarcode("8909999999999");
+          setShowNotFoundDialog(true);
+        } else {
+          handleLookupBarcode(barcodeVal);
+        }
+      }, 600);
     }, 1600);
   };
 
@@ -673,28 +774,13 @@ export default function Dashboard({
       }, 350);
       return () => clearTimeout(timer);
     } else {
-      if (html5QrCodeRef.current) {
-        if (html5QrCodeRef.current.isScanning) {
-          html5QrCodeRef.current.stop().then(() => {
-            html5QrCodeRef.current.clear();
-            html5QrCodeRef.current = null;
-          }).catch(e => console.warn(e));
-        } else {
-          html5QrCodeRef.current.clear();
-          html5QrCodeRef.current = null;
-        }
-      }
+      cleanupScanner();
     }
   }, [showScannerModal]);
 
   useEffect(() => {
     return () => {
-      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
-      if (html5QrCodeRef.current) {
-        if (html5QrCodeRef.current.isScanning) {
-          html5QrCodeRef.current.stop().catch(e => console.warn(e));
-        }
-      }
+      cleanupScanner();
     };
   }, []);
 
@@ -907,7 +993,7 @@ export default function Dashboard({
     return { text: "Needs Attention", color: "text-red-700 font-bold" };
   };
 
-  const healthLabel = getHealthLabel(overallScore);
+  const healthLabel = useMemo(() => getHealthLabel(overallScore), [overallScore]);
 
   const [animatedScore, setAnimatedScore] = useState(0);
   useEffect(() => {
@@ -932,8 +1018,18 @@ export default function Dashboard({
   }, [overallScore]);
 
   const [showBriefModal, setShowBriefModal] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [typedText, setTypedText] = useState("");
   const [copied, setCopied] = useState(false);
+
+  const handleGenerateReportClick = () => {
+    setIsGenerating(true);
+    setShowBriefModal(true);
+    setTimeout(() => {
+      setIsGenerating(false);
+      triggerToast("Business Report Generated Successfully.");
+    }, 1200);
+  };
 
   useEffect(() => {
     if (!showBriefModal) {
@@ -941,14 +1037,37 @@ export default function Dashboard({
       return;
     }
     
+    if (isGenerating) {
+      return;
+    }
+
     const name = user?.name || "Siddu";
-    const lowStockCount = lowStockProducts?.length ?? 2;
-    const pendingInvoices = mockInvoices?.filter(i => i.status === "unpaid").length ?? 3;
-    const stockRec = lowStockProducts?.[0]?.name ? lowStockProducts[0].name.split(' ')[0] : "Printer Paper";
-    const cashFlowStatus = netProfit > 0 ? "healthy" : "recovering";
+    const currency = user?.currency || "INR";
+    const lowStockCount = lowStockProducts?.length ?? 0;
+    const pendingInvoices = mockInvoices?.filter(i => i.status === "unpaid").length ?? 0;
     
-    const fullText = `Good Morning, ${name}.\n\nToday's Business Summary\n\n• Revenue increased by 12%\n• Expenses reduced by 6%\n• ${lowStockCount} products need restocking\n• Cash flow is ${cashFlowStatus}\n• ${pendingInvoices} invoices are pending\n\nAI Recommendation:\n\nIncrease inventory of ${stockRec} before weekend demand.`;
-    
+    const fullText = `BIZPILOT BUSINESS SUMMARY REPORT
+Generated on ${new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+
+OPERATIONAL METRICS:
+• Gross Revenue: ${formatAmount(totalRevenue, currency)}
+• Total Expenses/Outflows: ${formatAmount(totalExpense, currency)}
+• Net Profit: ${formatAmount(netProfit, currency)}
+• Pending Collections: ${formatAmount(unpaidInvoicesAmount, currency)} (${pendingInvoices} invoices outstanding)
+
+INVENTORY STATUS:
+• Low Stock Alert: ${lowStockCount} products are below safety threshold.
+• Restock Recommendation: ${lowStockProducts?.[0]?.name || "None"}
+
+BUSINESS HEALTH SUMMARY:
+• Health Score: ${overallScore}/100 (${healthLabel.text})
+• Finance Sector: ${financeScore}/100
+• Inventory Sector: ${inventoryScore}/100
+• Workforce Sector: ${workforceScore}/100
+
+AI RECOMMENDATION:
+Restock ${lowStockProducts.length > 0 ? `200 units of ${lowStockProducts[0].name.split(' ')[0]}` : "200 units of Printer Paper"} today to prevent wholesale stockouts and optimize fulfillment margins.`;
+
     let currentText = "";
     let index = 0;
     const interval = setInterval(() => {
@@ -959,10 +1078,10 @@ export default function Dashboard({
       } else {
         clearInterval(interval);
       }
-    }, 12);
+    }, 8);
     
     return () => clearInterval(interval);
-  }, [showBriefModal, user?.name, lowStockProducts, mockInvoices, netProfit]);
+  }, [showBriefModal, isGenerating, user?.name, user?.currency, lowStockProducts, mockInvoices, totalRevenue, totalExpense, netProfit, unpaidInvoicesAmount, overallScore, healthLabel, financeScore, inventoryScore, workforceScore]);
 
   const handleCopyText = () => {
     navigator.clipboard.writeText(typedText);
@@ -1064,72 +1183,60 @@ export default function Dashboard({
     /* Welcome Banner */
   }
       <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 w-full xl:w-auto">
-          <div>
-            <span className={`text-xs uppercase font-bold tracking-widest ${dbTheme.textAccent} font-mono transition-all duration-200`}>Business Command Center</span>
-            <h1 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-gray-900 mt-1">Hello, {user.name}</h1>
-            <p className="text-xs text-gray-500 mt-1">Real-time financials and automation logs for <span className="font-bold text-gray-800">{user.businessName}</span>.</p>
-          </div>
-
-          {
-    /* Dynamic theme selector widget */
-  }
-          <div className="flex flex-col items-start sm:items-end gap-1.5 p-3 bg-white border border-gray-200 rounded-lg shadow-sm">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Visual Theme Type</span>
-            <div className="flex items-center gap-2">
-              {[
-    { id: "cosmic", label: "Cosmic Midnight", color: "bg-slate-800 border-slate-650" },
-    { id: "emerald", label: "Royal Emerald", color: "bg-teal-700 border-teal-550" },
-    { id: "copper", label: "Sunset Copper", color: "bg-amber-700 border-amber-550" },
-    { id: "lagoon", label: "Oceanic Lagoon", color: "bg-blue-800 border-blue-650" }
-  ].map((t) => <button
-    key={t.id}
-    onClick={() => onChangeTheme?.(t.id)}
-    title={t.label}
-    className={`w-5 h-5 rounded-full ${t.color} border transition-all duration-200 relative flex items-center justify-center cursor-pointer ${theme === t.id ? "scale-115 ring-2 ring-teal-500" : "opacity-50 hover:opacity-100 hover:scale-105"}`}
-  >
-                  {theme === t.id && <span className="text-[8px] font-bold text-white">✓</span>}
-                </button>)}
-            </div>
-          </div>
+        <div>
+          <span className={`text-xs uppercase font-bold tracking-widest ${dbTheme.textAccent} font-mono transition-all duration-200`}>Business Command Center</span>
+          <h1 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-gray-900 mt-1">Hello, {user.name}</h1>
+          <p className="text-xs text-gray-500 mt-1">Real-time financials and automation logs for <span className="font-bold text-gray-800">{user.businessName}</span>.</p>
         </div>
 
         {
     /* Quick action group */
   }
         <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
-          <button
+          <motion.button
+            initial={{ x: 20, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            transition={{ duration: 0.6, ease: "easeOut", delay: 0.1 }}
             id="btn-quick-invoice"
             onClick={() => navigate("/invoices")}
             className={`px-4 py-2 bg-white hover:bg-gray-50 text-xs border border-gray-250 text-gray-700 rounded-lg font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm w-full sm:w-auto hover:scale-[1.01] active:scale-[0.99] duration-150`}
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Generate Invoice</span>
-          </button>
-          <button
+          </motion.button>
+          <motion.button
+            initial={{ x: 20, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            transition={{ duration: 0.6, ease: "easeOut", delay: 0.18 }}
             id="btn-quick-workforce"
             onClick={() => navigate("/workforce")}
             className={`px-4 py-2 ${dbTheme.btnAccent} text-xs text-white rounded-lg font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer w-full sm:w-auto hover:scale-[1.01] active:scale-[0.99] duration-150`}
           >
             <Users className="w-3.5 h-3.5" />
             <span>Track Team & Wages</span>
-          </button>
-          <button
+          </motion.button>
+          <motion.button
+            initial={{ x: 20, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            transition={{ duration: 0.6, ease: "easeOut", delay: 0.26 }}
             id="btn-quick-scanner"
             onClick={handleStartScanner}
             className={`px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-xs text-white rounded-lg font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer w-full sm:w-auto hover:scale-[1.01] active:scale-[0.99] duration-150 shadow-sm`}
           >
             <Camera className="w-3.5 h-3.5 text-white" />
             <span>Smart Scanner</span>
-          </button>
-          <button
+          </motion.button>
+          <motion.button
+            initial={{ x: 20, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            transition={{ duration: 0.6, ease: "easeOut", delay: 0.34 }}
             id="btn-generate-brief"
-            onClick={() => setShowBriefModal(true)}
+            onClick={handleGenerateReportClick}
             className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-xs text-white rounded-lg font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm w-full sm:w-auto hover:scale-[1.01] active:scale-[0.99] duration-150"
           >
             <Sparkles className="w-3.5 h-3.5 text-white animate-pulse" />
             <span>AI Executive Brief</span>
-          </button>
+          </motion.button>
         </div>
       </div>
 
@@ -1139,7 +1246,7 @@ export default function Dashboard({
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-stretch">
         <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-6">
           {/* Cumulative Revenue */}
-          <div className="bg-white border border-gray-200 p-6 rounded-lg relative overflow-hidden group hover:border-gray-300 transition-all duration-200 shadow-sm">
+          <motion.div {...getCardAnimation(0)} className="bg-white border border-gray-200 p-6 rounded-lg relative overflow-hidden group hover:border-gray-300 transition-all duration-200 shadow-sm">
             <div className="absolute top-0 right-0 p-3 opacity-20 transition-colors">
               <DollarSign className="w-16 h-16" style={{ color: dbTheme.chartRevenue }} />
             </div>
@@ -1151,10 +1258,10 @@ export default function Dashboard({
               <ArrowUpRight className="w-3.5 h-3.5" />
               <span>Inflows tracked</span>
             </div>
-          </div>
+          </motion.div>
 
           {/* Cumulative Expenses */}
-          <div className="bg-white border border-gray-200 p-6 rounded-lg relative overflow-hidden group hover:border-gray-300 transition-all duration-200 shadow-sm">
+          <motion.div {...getCardAnimation(1)} className="bg-white border border-gray-200 p-6 rounded-lg relative overflow-hidden group hover:border-gray-300 transition-all duration-200 shadow-sm">
             <div className="absolute top-0 right-0 p-3 opacity-15 transition-colors">
               <ArrowDownRight className="w-16 h-16" style={{ color: dbTheme.chartExpenses }} />
             </div>
@@ -1166,10 +1273,10 @@ export default function Dashboard({
               <Activity className="w-3.5 h-3.5 text-gray-400" />
               <span>Ledger procurement</span>
             </div>
-          </div>
+          </motion.div>
 
           {/* Profit margin */}
-          <div className="bg-white border border-gray-200 p-6 rounded-lg relative overflow-hidden group hover:border-gray-300 transition-all duration-200 shadow-sm">
+          <motion.div {...getCardAnimation(2)} className="bg-white border border-gray-200 p-6 rounded-lg relative overflow-hidden group hover:border-gray-300 transition-all duration-200 shadow-sm">
             <div className="absolute top-0 right-0 p-3 opacity-20 transition-colors">
               <TrendingUp className="w-16 h-16" style={{ color: dbTheme.chartRevenue }} />
             </div>
@@ -1181,10 +1288,10 @@ export default function Dashboard({
               <Sparkles className="w-3.5 h-3.5 shrink-0 text-teal-650" />
               <span>{profitMargin.toFixed(1)}% profitability</span>
             </div>
-          </div>
+          </motion.div>
 
           {/* Pending collection */}
-          <div className="bg-white border border-gray-200 p-6 rounded-lg relative overflow-hidden group hover:border-gray-300 transition-all duration-200 shadow-sm">
+          <motion.div {...getCardAnimation(3)} className="bg-white border border-gray-200 p-6 rounded-lg relative overflow-hidden group hover:border-gray-300 transition-all duration-200 shadow-sm">
             <div className="absolute top-0 right-0 p-3 opacity-15 transition-colors">
               <Receipt className="w-16 h-16 text-amber-600" />
             </div>
@@ -1194,9 +1301,9 @@ export default function Dashboard({
             </p>
             <div className="flex items-center gap-1 mt-2 text-xs text-amber-800 font-semibold">
               <AlertCircle className="w-3.5 h-3.5" />
-              <span>{mockInvoices.filter((i) => i.status === "unpaid").length} invoices outstanding</span>
+              <span><CountUpNumber targetValue={mockInvoices.filter((i) => i.status === "unpaid").length} /> invoices outstanding</span>
             </div>
-          </div>
+          </motion.div>
         </div>
 
         {/* Right Side: Insights + Health Score */}
@@ -1205,7 +1312,7 @@ export default function Dashboard({
           {/* Column 1: AI Insight Card + AI Quick Actions */}
           <div className="flex flex-col gap-6 justify-between">
             {/* AI Insight Card */}
-            <div className="bg-white border border-gray-200 p-5 rounded-lg relative overflow-hidden flex flex-col justify-between flex-1 group hover:border-gray-300 transition-all duration-200 shadow-sm border-l-4 border-l-teal-650">
+            <motion.div {...getCardAnimation(4)} className="bg-white border border-gray-200 p-5 rounded-lg relative overflow-hidden flex flex-col justify-between flex-1 group hover:border-gray-300 transition-all duration-200 shadow-sm border-l-4 border-l-teal-650">
               <div className="absolute top-0 right-0 p-3 opacity-5 pointer-events-none">
                 <Sparkles className="w-12 h-12 text-teal-650" />
               </div>
@@ -1230,7 +1337,7 @@ export default function Dashboard({
                     </span>
                   </div>
                   <div className="flex items-center justify-between border-b border-gray-100 pb-1.5">
-                    <span className="text-gray-500 font-medium">Low Stock:</span>
+                    <span className="text-gray-550 font-medium">Low Stock:</span>
                     <span className="text-red-700 font-semibold max-w-[120px] truncate" title={lowStockProducts.length > 0 ? lowStockProducts[0].name : "Printer Paper"}>
                       {lowStockProducts.length > 0 ? lowStockProducts[0].name.split(' ')[0] : "Printer Paper"}
                     </span>
@@ -1248,10 +1355,10 @@ export default function Dashboard({
                 <span className="font-bold text-teal-900 block mb-0.5 uppercase tracking-widest text-[8px]">AI Recommendation</span>
                 Restock {lowStockProducts.length > 0 ? `200 units of ${lowStockProducts[0].name.split(' ')[0]}` : "200 units of Printer Paper"} today.
               </div>
-            </div>
+            </motion.div>
 
             {/* AI Quick Actions Card */}
-            <div className="bg-white border border-gray-200 p-5 rounded-lg relative overflow-hidden flex flex-col justify-between flex-1 hover:border-gray-300 transition-all duration-205 shadow-sm">
+            <motion.div {...getCardAnimation(5)} className="bg-white border border-gray-200 p-5 rounded-lg relative overflow-hidden flex flex-col justify-between flex-1 hover:border-gray-300 transition-all duration-205 shadow-sm">
               <div>
                 <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider flex items-center gap-1.5 mb-3.5">
                   <Sparkles className="w-3.5 h-3.5 text-teal-650 animate-pulse" />
@@ -1260,8 +1367,8 @@ export default function Dashboard({
                 
                 <div className="grid grid-cols-2 gap-2">
                   <button
-                    onClick={() => setShowBriefModal(true)}
-                    className="py-2 px-3 text-[10px] font-bold text-gray-600 rounded-lg bg-gray-50 hover:bg-gray-100 border border-gray-200 transition-all hover:scale-[1.01] active:scale-[0.99] duration-150 cursor-pointer flex items-center justify-center gap-1.5 shadow-sm"
+                    onClick={handleGenerateReportClick}
+                    className="py-2 px-3 text-[10px] font-bold text-gray-600 rounded-lg bg-gray-50 hover:bg-gray-100 border border-gray-250 transition-all hover:scale-[1.01] active:scale-[0.99] duration-150 cursor-pointer flex items-center justify-center gap-1.5 shadow-sm"
                   >
                     <Plus className="w-3.5 h-3.5 text-teal-700" />
                     <span>Generate Report</span>
@@ -1296,11 +1403,11 @@ export default function Dashboard({
                   </button>
                 </div>
               </div>
-            </div>
+            </motion.div>
           </div>
 
           {/* Business Health Score Widget */}
-          <div className="bg-white border border-gray-200 p-5 rounded-lg relative overflow-hidden flex flex-col justify-between h-full group hover:border-gray-300 transition-all duration-200 shadow-sm">
+          <motion.div {...getCardAnimation(6)} className="bg-white border border-gray-200 p-5 rounded-lg relative overflow-hidden flex flex-col justify-between h-full group hover:border-gray-300 transition-all duration-200 shadow-sm">
             <div>
               <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider flex items-center gap-1.5 mb-3">
                 <Activity className="w-3.5 h-3.5 text-teal-650 animate-pulse" />
@@ -1376,7 +1483,7 @@ export default function Dashboard({
                 {healthLabel.text}
               </span>
             </div>
-          </div>
+          </motion.div>
         </div>
       </div>
 
@@ -1388,7 +1495,7 @@ export default function Dashboard({
         {
     /* Visual Recharts Area */
   }
-        <div className="lg:col-span-2 bg-white border border-gray-200 rounded-lg p-6 flex flex-col min-h-[380px] shadow-sm">
+        <motion.div {...getCardAnimation(7)} className="lg:col-span-2 bg-white border border-gray-200 rounded-lg p-6 flex flex-col min-h-[380px] shadow-sm">
           <div className="flex items-center justify-between mb-6">
             <div>
               <h3 className="text-sm font-bold text-gray-900">Reconciled Trade Analytics</h3>
@@ -1422,12 +1529,12 @@ export default function Dashboard({
               </AreaChart>
             </ResponsiveContainer>
           </div>
-        </div>
+        </motion.div>
 
         {
     /* Expense Breakdown Pie Chart */
   }
-        <div className="bg-white border border-gray-200 rounded-lg p-6 flex flex-col min-h-[380px] justify-between shadow-sm">
+        <motion.div {...getCardAnimation(8)} className="bg-white border border-gray-200 rounded-lg p-6 flex flex-col min-h-[380px] justify-between shadow-sm">
           <div>
             <h3 className="text-sm font-bold text-gray-900">Expense Distribution</h3>
             <p className="text-[11px] text-gray-400">Category breakdown of ledger outflows.</p>
@@ -1464,7 +1571,7 @@ export default function Dashboard({
             {expensePieData.length > 0 && <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                 <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Total</span>
                 <span className="text-xs sm:text-sm font-mono font-bold text-gray-900">
-                  {formatAmount(expensePieData.reduce((acc, curr) => acc + curr.value, 0), user?.currency)}
+                  <CountUpAmount targetValue={expensePieData.reduce((acc, curr) => acc + curr.value, 0)} currency={user?.currency} />
                 </span>
               </div>}
           </div>
@@ -1485,7 +1592,7 @@ export default function Dashboard({
                   </div>;
               })}
             </div>}
-        </div>
+        </motion.div>
 
       </div>
 
@@ -1497,7 +1604,7 @@ export default function Dashboard({
         {
     /* Recent Ledger Logs (Transactions) */
   }
-        <div className="lg:col-span-2 bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+        <motion.div {...getCardAnimation(9)} className="lg:col-span-2 bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="text-sm font-bold text-gray-900">Recent Transaction Ledger</h3>
@@ -1537,13 +1644,13 @@ export default function Dashboard({
               </tbody>
             </table>
           </div>
-        </div>
+        </motion.div>
 
         {/* Right side stack: Stock watchlist + AI Timeline */}
         <div className="lg:col-span-1 flex flex-col gap-6">
           
           {/* Low Stock Watchlist */}
-          <div className="bg-white border border-gray-200 rounded-lg p-6 flex-1 shadow-sm">
+          <motion.div {...getCardAnimation(10)} className="bg-white border border-gray-200 rounded-lg p-6 flex-1 shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="text-sm font-bold text-gray-900">Stock Reorder Watchlist</h3>
@@ -1555,7 +1662,7 @@ export default function Dashboard({
               {lowStockProducts.length > 0 ? lowStockProducts.map((p) => <div key={p.id} className="p-3 bg-gray-50 border border-gray-200 rounded-lg flex items-center justify-between gap-4">
                     <div className="min-w-0">
                       <h4 className="text-xs font-semibold text-gray-800 truncate">{p.name}</h4>
-                      <p className="text-[10px] text-gray-500 mt-1">Available: <span className="text-red-700 font-bold">{p.quantity}</span> / safety threshold: {p.minStock}</p>
+                      <p className="text-[10px] text-gray-550 mt-1">Available: <span className="text-red-700 font-bold"><CountUpNumber targetValue={p.quantity} /></span> / safety threshold: {p.minStock}</p>
                     </div>
                     <button
                       onClick={() => navigate("/inventory")}
@@ -1568,10 +1675,10 @@ export default function Dashboard({
                   <p className="text-[11px] text-gray-400">All products have healthy stock.</p>
                 </div>}
             </div>
-          </div>
+          </motion.div>
 
           {/* Recent AI Activity Timeline */}
-          <div className="bg-white border border-gray-200 rounded-lg p-6 flex-1 hover:border-gray-300 transition-all duration-200 shadow-sm">
+          <motion.div {...getCardAnimation(11)} className="bg-white border border-gray-200 rounded-lg p-6 flex-1 hover:border-gray-300 transition-all duration-200 shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="text-sm font-bold text-gray-900 flex items-center gap-1.5">
@@ -1615,7 +1722,7 @@ export default function Dashboard({
                 );
               })}
             </div>
-          </div>
+          </motion.div>
 
         </div>
 
@@ -1624,7 +1731,7 @@ export default function Dashboard({
       {
     /* Workforce Operations & Best-Selling Equipment Panel */
   }
-      <div className="glass-card rounded-2xl p-6 flex flex-col justify-between">
+      <motion.div {...getCardAnimation(12)} className="glass-card rounded-2xl p-6 flex flex-col justify-between">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div className="flex items-center gap-2">
             <div className="p-1.5 bg-indigo-50 rounded-lg text-indigo-600">
@@ -1637,7 +1744,7 @@ export default function Dashboard({
           </div>
           <button
             onClick={() => navigate("/workforce")}
-            className="bg-gray-150 hover:bg-gray-200 border border-gray-250 text-gray-750 px-4 py-2 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-2 cursor-pointer"
+            className="bg-gray-150 hover:bg-gray-200 border border-gray-250 text-gray-755 px-4 py-2 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-2 cursor-pointer"
           >
             <span>Manage Team & Wages</span>
             <ArrowRight className="w-3.5 h-3.5" />
@@ -1655,13 +1762,13 @@ export default function Dashboard({
                 <span className="w-1.5 h-1.5 bg-emerald-600 rounded-full" />
                 Best-Selling Equipment
               </h4>
-              <p className="text-[11px] text-gray-500 mt-1">High-demand products by invoice units:</p>
+              <p className="text-[11px] text-gray-550 mt-1">High-demand products by invoice units:</p>
               
               <div className="space-y-2 mt-3">
                 {topSellingProducts.length > 0 ? topSellingProducts.map((p) => <div key={p.name} className="flex justify-between items-center text-[11px]">
                       <span className="text-gray-700 truncate max-w-[150px]" title={p.name}>{p.name}</span>
-                      <span className="font-mono text-emerald-700 font-semibold shrink-0">{p.quantitySold} units</span>
-                    </div>) : <p className="text-[11px] text-gray-500">No equipment sales logged yet.</p>}
+                      <span className="font-mono text-emerald-700 font-semibold shrink-0"><CountUpNumber targetValue={p.quantitySold} /> units</span>
+                    </div>) : <p className="text-[11px] text-gray-550">No equipment sales logged yet.</p>}
               </div>
             </div>
             <button
@@ -1682,12 +1789,12 @@ export default function Dashboard({
                 <span className="w-1.5 h-1.5 bg-indigo-600 rounded-full animate-pulse" />
                 Operations Staff Status
               </h4>
-              <p className="text-[11px] text-gray-500 mt-1">Personnel stats under direct supervision:</p>
+              <p className="text-[11px] text-gray-550 mt-1">Personnel stats under direct supervision:</p>
               
               <div className="space-y-2 mt-3">
                 <div className="flex justify-between text-[11px]">
                   <span className="text-gray-700">Total Registered Employees</span>
-                  <span className="font-mono font-semibold text-gray-900">{workforceCount} staffs</span>
+                  <span className="font-mono font-semibold text-gray-900"><CountUpNumber targetValue={workforceCount} /> staffs</span>
                 </div>
                 <div className="flex justify-between text-[11px]">
                   <span className="text-gray-700">Operational Sectors</span>
@@ -1713,12 +1820,12 @@ export default function Dashboard({
                 <span className="w-1.5 h-1.5 bg-amber-600 rounded-full" />
                 Surveillance Wages Settle
               </h4>
-              <p className="text-[11px] text-gray-500 mt-1">Pending wage balances generated by logged actions:</p>
+              <p className="text-[11px] text-gray-550 mt-1">Pending wage balances generated by logged actions:</p>
               
               <div className="space-y-2 mt-3">
                 <div className="flex justify-between text-[11px]">
                   <span className="text-gray-700">Outstanding Wages</span>
-                  <span className="font-mono font-bold text-amber-600">{formatAmount(pendingWages, user?.currency)}</span>
+                  <span className="font-mono font-bold text-amber-600"><CountUpAmount targetValue={pendingWages} currency={user?.currency} /></span>
                 </div>
                 <div className="flex justify-between text-[11px]">
                   <span className="text-gray-700">Approval Ledger</span>
@@ -1736,12 +1843,12 @@ export default function Dashboard({
           </div>
 
         </div>
-      </div>
+      </motion.div>
 
       {/* AI Executive Brief Modal */}
       {showBriefModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white border border-gray-200 w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl relative flex flex-col max-h-[85vh]">
+          <div className="bg-white border border-gray-200 w-full max-w-3xl rounded-3xl overflow-hidden shadow-2xl relative flex flex-col max-h-[85vh]">
             {/* Header */}
             <div className="px-6 py-4 bg-gray-50 border-b border-gray-150 flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -1757,11 +1864,21 @@ export default function Dashboard({
             </div>
 
             {/* Scrollable Content */}
-            <div className="p-6 overflow-y-auto space-y-4">
-              <div className="bg-gray-50 border border-gray-200 p-5 rounded-xl min-h-[220px]">
-                <pre className="text-sm font-sans text-gray-800 leading-relaxed white-space-pre-wrap text-left">
-                  {typewriterText}
-                </pre>
+            <div className="p-6 overflow-y-auto space-y-4 flex-1">
+              <div className="bg-gray-50 border border-gray-250 p-5 rounded-xl min-h-[220px]">
+                {isGenerating ? (
+                  <div className="flex flex-col items-center justify-center py-16 space-y-4">
+                    <Loader2 className="w-10 h-10 text-indigo-600 animate-spin" />
+                    <p className="text-xs font-semibold text-gray-550 animate-pulse">Analyzing dashboard metrics...</p>
+                  </div>
+                ) : (
+                  <pre 
+                    className="text-sm font-sans text-gray-800 leading-relaxed text-left"
+                    style={{ wordBreak: "break-word", overflowWrap: "anywhere", whiteSpace: "pre-wrap" }}
+                  >
+                    {typedText}
+                  </pre>
+                )}
               </div>
             </div>
 
@@ -1826,11 +1943,31 @@ export default function Dashboard({
                 <div className="space-y-5 flex flex-col items-center">
                   
                   {/* Camera Viewfinder Box */}
-                  <div className="relative w-full aspect-video bg-black rounded-2xl overflow-hidden border border-slate-800 flex items-center justify-center shadow-inner max-w-md">
+                  <div className={`relative w-full aspect-video bg-black rounded-2xl overflow-hidden border flex items-center justify-center shadow-inner max-w-md transition-all duration-300 ${
+                    scanSuccessFlash ? "border-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.5)] scale-[1.02]" : "border-slate-800"
+                  }`}>
                     <div id="dashboard-scanner-reader" className="w-full h-full object-cover" />
 
                     {/* Scanner laser lines */}
-                    <div className="absolute top-0 left-0 w-full h-[2px] bg-rose-500 shadow-[0_0_12px_rgba(239,68,68,0.95)] pointer-events-none animate-bounce z-10" />
+                    {!scanSuccessFlash && (
+                      <div className="absolute top-0 left-0 w-full h-[2px] bg-rose-500 shadow-[0_0_12px_rgba(239,68,68,0.95)] pointer-events-none animate-bounce z-10" />
+                    )}
+
+                    {/* Success checkmark overlay */}
+                    {scanSuccessFlash && (
+                      <div className="absolute inset-0 bg-emerald-500/10 backdrop-blur-[1px] flex flex-col items-center justify-center gap-2 z-20 animate-fade-in">
+                        <CheckCircle className="w-12 h-12 text-emerald-500 animate-bounce" />
+                        <span className="text-xs text-emerald-500 font-bold uppercase tracking-widest font-mono">Success!</span>
+                      </div>
+                    )}
+
+                    {scannerStatus.includes("Initializing") && (
+                      <div className="absolute inset-0 bg-slate-950/95 flex flex-col items-center justify-center gap-2 z-20">
+                        <RefreshCw className="w-8 h-8 text-emerald-500 animate-spin" />
+                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{scannerStatus}</span>
+                      </div>
+                    )}
+
                     <div className="absolute inset-0 bg-gradient-to-t from-slate-950/50 via-transparent to-slate-950/30 pointer-events-none z-10" />
                     <div className="crt-scanlines opacity-40 z-10" />
                   </div>

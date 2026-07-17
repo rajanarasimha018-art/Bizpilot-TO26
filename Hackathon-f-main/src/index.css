@@ -45,30 +45,31 @@
 }
 
 /* High-fidelity Glassmorphism for Vibrant Palette (Light Theme) */
-.glass-panel {
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  border: 1px solid rgba(16, 185, 129, 0.15);
-  box-shadow: 0 10px 30px 0 rgba(0, 0, 0, 0.05);
-  border-radius: 20px;
+body:not(.crt-active) .glass-panel,
+body:not(.crt-active) .glass-card,
+body:not(.crt-active) div.bg-white.border.border-gray-200,
+body:not(.crt-active) div.bg-white.border.border-gray-250,
+body:not(.crt-active) div.bg-white.border.border-red-200,
+body:not(.crt-active) div.bg-white.border.border-gray-250\/70,
+body:not(.crt-active) section.border.bg-gray-100\/80,
+body:not(.crt-active) section.border-gray-200.bg-white.backdrop-blur-xl {
+  background: rgba(255, 255, 255, 0.82) !important;
+  backdrop-filter: blur(13px) saturate(140%) !important;
+  -webkit-backdrop-filter: blur(13px) saturate(140%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.5) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03), 0 1px 3px rgba(0, 0, 0, 0.01) !important;
 }
 
-.glass-card {
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(16px) saturate(140%);
-  -webkit-backdrop-filter: blur(16px) saturate(140%);
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
-  border-radius: 16px;
-  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.glass-card:hover {
-  background: rgba(255, 255, 255, 0.95);
-  border-color: rgba(16, 185, 129, 0.35);
-  box-shadow: 0 10px 30px rgba(16, 185, 129, 0.08), 0 1px 3px rgba(0, 0, 0, 0.01);
-  transform: translateY(-2px);
+body:not(.crt-active) .glass-panel:hover,
+body:not(.crt-active) .glass-card:hover,
+body:not(.crt-active) div.bg-white.border.border-gray-200:hover,
+body:not(.crt-active) div.bg-white.border.border-gray-250:hover,
+body:not(.crt-active) div.bg-white.border.border-red-200:hover,
+body:not(.crt-active) section.border.bg-gray-100\/80:hover,
+body:not(.crt-active) section.border-gray-200.bg-white.backdrop-blur-xl:hover {
+  background: rgba(255, 255, 255, 0.92) !important;
+  border-color: rgba(255, 255, 255, 0.75) !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.02) !important;
 }
 
 /* Hide scrollbars but keep functionality */
