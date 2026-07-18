@@ -1,9 +1,9 @@
 {
-  "apiKey": "AIzaSyCctZmkWwGyaE_3JPX0jZFnzZ5XLSEVj64",
-  "authDomain": "hackathonf-cbcce.firebaseapp.com",
-  "projectId": "hackathonf-cbcce",
-  "storageBucket": "hackathonf-cbcce.firebasestorage.app",
-  "messagingSenderId": "896389027498",
-  "appId": "1:896389027498:web:994e97f1e34c3f2ea7a2d3",
-  "measurementId": "G-YQWE7DJLHY"
+  "projectId": "hackathon-ec15d",
+  "appId": "1:576057488049:web:6021b7323ea6d61544a890",
+  "apiKey": "AIzaSyATzCTo1N8ZJGxLe_PTUoQKBYgMX5yJdgs",
+  "authDomain": "hackathon-ec15d.firebaseapp.com",
+  "storageBucket": "hackathon-ec15d.firebasestorage.app",
+  "messagingSenderId": "576057488049",
+  "measurementId": "G-SJY14HV833"
 }

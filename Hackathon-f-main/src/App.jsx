@@ -16,8 +16,6 @@ import Backups from "./pages/Backups";
 import Copilot from "./pages/Copilot";
 import OperationsDashboard from "./pages/OperationsDashboard";
 import SplashScreen from "./components/SplashScreen";
-import { auth } from "./googleDrive";
-import { signOut } from "firebase/auth";
 
 export default function App() {
   const [showSplash, setShowSplash] = useState(() => {
@@ -89,11 +87,6 @@ export default function App() {
       await fetch("/api/auth/logout", { method: "POST" });
     } catch (err) {
       console.error("Logout sync failed:", err);
-    }
-    try {
-      await signOut(auth);
-    } catch (err) {
-      console.warn("Firebase signout error:", err);
     }
     localStorage.removeItem("bizpilot_profile");
     localStorage.removeItem("bizpilot_chat");
