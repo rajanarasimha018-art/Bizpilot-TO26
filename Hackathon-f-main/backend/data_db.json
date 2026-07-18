@@ -492,14 +492,5 @@
       "note": "running low, customers asking"
     }
   ],
-  "profile": [
-    {
-      "id": "profile_active",
-      "email": "rajanarasimha.018@gmail.com",
-      "name": "Siddu",
-      "businessName": "BizPilot",
-      "businessType": "Wholesale & Distribution",
-      "currency": "USD"
-    }
-  ]
+  "profile": []
 }
