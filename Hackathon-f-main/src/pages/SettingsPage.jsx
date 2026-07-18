@@ -188,22 +188,8 @@ export default function SettingsPage({
             </div>
 
             {
-    /* Visual Theme Selection */
+    /* Visual Theme Selection Removed */
   }
-            <div>
-              <label className="block text-[10px] uppercase font-bold tracking-wider text-gray-500 mb-1.5">Workspace Theme style</label>
-              <select
-    value={theme}
-    onChange={(e) => onChangeTheme?.(e.target.value)}
-    className={`w-full bg-gray-50 border border-gray-200 rounded-xl py-2.5 px-3.5 text-xs ${stTheme.focusBorder} focus:outline-none text-gray-800 transition-all duration-305`}
-  >
-                <option value="cosmic">Cosmic Midnight (Indigo/Violet)</option>
-                <option value="emerald">Royal Emerald (Jade/Gold)</option>
-                <option value="copper">Sunset Copper (Espresso/Amber)</option>
-                <option value="lagoon">Oceanic Lagoon (Teal/Cyan)</option>
-              </select>
-            </div>
-
           </div>
 
           <div className="flex items-center gap-2 text-xs text-gray-500 font-semibold bg-gray-50/50 p-4 rounded-xl border border-gray-200 w-full">

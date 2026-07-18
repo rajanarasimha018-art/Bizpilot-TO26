@@ -342,6 +342,13 @@
       "date": "2026-07-10",
       "status": "present",
       "hours_worked": 6.0
+    },
+    {
+      "id": "att_w1_20260717",
+      "worker_id": "w1",
+      "date": "2026-07-17",
+      "status": "present",
+      "hours_worked": 8.0
     }
   ],
   "stock_movements": [
@@ -480,19 +487,10 @@
       "product_id": "p5",
       "requested_qty": 20,
       "requested_by": "Ravi Kumar",
-      "status": "approved",
+      "status": "pending",
       "date": "2026-07-14",
       "note": "running low, customers asking"
     }
   ],
-  "profile": [
-    {
-      "id": "profile_active",
-      "email": "gamigrrider18@gmail.com",
-      "name": "Siddu",
-      "businessName": "BizPilot",
-      "businessType": "Clean Energy Systems & Green Technology",
-      "currency": "INR"
-    }
-  ]
+  "profile": []
 }

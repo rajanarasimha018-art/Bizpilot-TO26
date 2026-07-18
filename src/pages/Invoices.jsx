@@ -40,8 +40,36 @@ export default function Invoices({ user, invoices, products, onAddInvoice, onEdi
   }, [subtotal, taxAmount]);
   const filteredInvoices = useMemo(() => {
     return invoices.filter((inv) => {
-      const matchesSearch = inv.clientName.toLowerCase().includes(searchTerm.toLowerCase()) || inv.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) || inv.clientEmail.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesStatus = statusFilter === "all" || inv.status === statusFilter;
+      const clientName = inv.clientName || inv.customer_name || "";
+      const invoiceNumber = inv.invoiceNumber || `INV-${inv.id || ""}`;
+      const clientEmail = inv.clientEmail || "";
+      
+      const matchesSearch = 
+        clientName.toLowerCase().includes((searchTerm || "").toLowerCase()) || 
+        invoiceNumber.toLowerCase().includes((searchTerm || "").toLowerCase()) || 
+        clientEmail.toLowerCase().includes((searchTerm || "").toLowerCase());
+        
+      const status = inv.status || "unpaid";
+      
+      // Fallback due date to date + 14 days if missing
+      let dueDate = inv.dueDate;
+      if (!dueDate && (inv.issueDate || inv.date)) {
+        const dateObj = new Date(inv.issueDate || inv.date);
+        dateObj.setDate(dateObj.getDate() + 14);
+        dueDate = dateObj.toISOString().split("T")[0];
+      }
+      
+      const isOverdue = status !== "paid" && dueDate && new Date(dueDate) < new Date();
+      
+      let matchesStatus = true;
+      if (statusFilter === "paid") {
+        matchesStatus = status === "paid";
+      } else if (statusFilter === "unpaid") {
+        matchesStatus = status === "unpaid" && !isOverdue;
+      } else if (statusFilter === "overdue") {
+        matchesStatus = status === "unpaid" && isOverdue;
+      }
+      
       return matchesSearch && matchesStatus;
     });
   }, [invoices, searchTerm, statusFilter]);
@@ -237,7 +265,7 @@ export default function Invoices({ user, invoices, products, onAddInvoice, onEdi
 
             <div className="flex items-center gap-3 w-full md:w-auto overflow-x-auto">
               <span className="text-[11px] font-bold text-gray-450 uppercase tracking-widest shrink-0">Filter Status:</span>
-              {["all", "paid", "unpaid"].map((f) => <button
+              {["all", "paid", "unpaid", "overdue"].map((f) => <button
                 key={f}
                 onClick={() => setStatusFilter(f)}
                 className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 cursor-pointer capitalize ${statusFilter === f ? "bg-teal-700 text-white shadow-sm" : "bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200"}`}
@@ -265,40 +293,74 @@ export default function Invoices({ user, invoices, products, onAddInvoice, onEdi
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {filteredInvoices.length > 0 ? filteredInvoices.map((inv) => <tr key={inv.id} className="hover:bg-gray-50 group">
-                        <td className="py-4 px-6 font-mono text-[11px] font-semibold text-teal-700">{inv.invoiceNumber}</td>
+                  {filteredInvoices.length > 0 ? filteredInvoices.map((inv) => {
+                    const clientName = inv.clientName || inv.customer_name || "Unnamed Client";
+                    const invoiceNumber = inv.invoiceNumber || `INV-${inv.id ? String(inv.id).substring(0, 8) : "TEMP"}`;
+                    const clientEmail = inv.clientEmail || "No email logs";
+                    const issueDate = inv.issueDate || inv.date || "N/A";
+                    
+                    // Fallback due date to date + 14 days if missing
+                    let dueDate = inv.dueDate;
+                    if (!dueDate && (inv.issueDate || inv.date)) {
+                      const dateObj = new Date(inv.issueDate || inv.date);
+                      dateObj.setDate(dateObj.getDate() + 14);
+                      dueDate = dateObj.toISOString().split("T")[0];
+                    }
+                    dueDate = dueDate || "N/A";
+                    
+                    const status = inv.status || "unpaid";
+                    const isOverdue = status !== "paid" && dueDate !== "N/A" && new Date(dueDate) < new Date();
+                    
+                    let badgeClass = "bg-amber-50 text-amber-700 border-amber-250";
+                    let statusLabel = "Pending";
+                    if (status === "paid") {
+                      badgeClass = "bg-green-50 text-green-700 border-green-200";
+                      statusLabel = "Paid";
+                    } else if (isOverdue) {
+                      badgeClass = "bg-red-50 text-red-700 border-red-200";
+                      statusLabel = "Overdue";
+                    }
+
+                    return (
+                      <tr key={inv.id} className="hover:bg-gray-50/80 transition-colors">
+                        <td className="py-4 px-6 font-mono text-[11px] font-semibold text-teal-700">{invoiceNumber}</td>
                         <td className="py-4 px-4">
                           <div>
-                            <p className="font-semibold text-gray-900">{inv.clientName}</p>
-                            <p className="text-[10px] text-gray-450 mt-0.5">{inv.clientEmail || "No email logs"}</p>
+                            <p className="font-semibold text-gray-900">{clientName}</p>
+                            <p className="text-[10px] text-gray-450 mt-0.5">{clientEmail}</p>
                           </div>
                         </td>
-                        <td className="py-4 px-4 text-gray-500">{inv.issueDate}</td>
-                        <td className="py-4 px-4 text-gray-500">{inv.dueDate}</td>
-                        <td className="py-4 px-4 text-right font-bold text-gray-900">{formatAmount(inv.total, user?.currency)}</td>
+                        <td className="py-4 px-4 text-gray-500">{issueDate}</td>
+                        <td className="py-4 px-4 text-gray-500">{dueDate}</td>
+                        <td className="py-4 px-4 text-right font-bold text-gray-900">{formatAmount(inv.total || 0, user?.currency)}</td>
                         <td className="py-4 px-4 text-center">
-                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold border capitalize ${inv.status === "paid" ? "bg-green-50 text-green-700 border-green-200" : "bg-amber-50 text-amber-700 border-amber-200"}`}>
-                            {inv.status}
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wider ${badgeClass}`}>
+                            {statusLabel}
                           </span>
                         </td>
                         <td className="py-4 px-6 text-center">
-                          <div className="flex items-center justify-center gap-2">
+                          <div className="flex items-center justify-center gap-1.5">
                             <button
                               onClick={() => {
                                 setSelectedInvoice(inv);
                                 setView("preview");
                               }}
-                              className="px-2.5 py-1.5 bg-white hover:bg-gray-50 border border-gray-250 text-[10px] font-semibold text-gray-700 rounded-md transition-colors cursor-pointer shadow-sm"
+                              className="px-2.5 py-1.5 bg-teal-50 hover:bg-teal-100 border border-teal-200 text-[10px] font-semibold text-teal-700 rounded-md transition-colors cursor-pointer shadow-sm flex items-center gap-1"
+                              title="View Invoice"
                             >
-                              Open Invoice
+                              <FileText className="w-3.5 h-3.5" />
+                              <span>View</span>
                             </button>
-                            {inv.status === "unpaid" && <button
-                              onClick={() => onEditInvoice(inv.id, { status: "paid" })}
-                              className="p-1.5 bg-green-50 hover:bg-green-100 text-green-700 rounded-md transition-colors cursor-pointer border border-green-200"
-                              title="Mark Paid"
-                            >
+                            {status === "unpaid" && (
+                              <button
+                                onClick={() => onEditInvoice(inv.id, { status: "paid" })}
+                                className="px-2.5 py-1.5 bg-green-50 hover:bg-green-100 border border-green-200 text-[10px] font-semibold text-green-700 rounded-md transition-colors cursor-pointer flex items-center gap-1"
+                                title="Mark Paid"
+                              >
                                 <CheckCircle className="w-3.5 h-3.5" />
-                              </button>}
+                                <span>Pay</span>
+                              </button>
+                            )}
                             <button
                               onClick={() => onDeleteInvoice(inv.id)}
                               className="p-1.5 bg-white hover:bg-red-50 border border-gray-250 hover:border-red-200 text-gray-400 hover:text-red-650 rounded-md transition-colors cursor-pointer shadow-sm"
@@ -308,7 +370,9 @@ export default function Invoices({ user, invoices, products, onAddInvoice, onEdi
                             </button>
                           </div>
                         </td>
-                      </tr>) : <tr>
+                      </tr>
+                    );
+                  }) : <tr>
                       <td colSpan={7} className="text-center py-16">
                         <FileText className="w-12 h-12 text-gray-200 mx-auto mb-3" />
                         <p className="text-sm font-semibold text-gray-400">No invoices generated</p>
@@ -649,30 +713,56 @@ export default function Invoices({ user, invoices, products, onAddInvoice, onEdi
                 <p className="text-xs text-gray-400">{user.email}</p>
               </div>
 
-              <div className="text-right space-y-1 font-mono text-xs">
-                <p className="text-sm font-bold text-teal-850">{selectedInvoice.invoiceNumber}</p>
-                <p className="text-gray-500">Issue Date: {selectedInvoice.issueDate}</p>
-                <p className="text-gray-500">Due Date: {selectedInvoice.dueDate}</p>
-                <span className={`inline-block mt-2 px-2.5 py-0.5 rounded-full text-[10px] font-semibold border capitalize ${selectedInvoice.status === "paid" ? "bg-green-50 text-green-700 border-green-200" : "bg-amber-50 text-amber-700 border-amber-200"}`}>
-                  {selectedInvoice.status}
-                </span>
+              <div className="text-right space-y-1 font-mono text-xs text-gray-700">
+                <p className="text-sm font-bold text-teal-700">{selectedInvoice.invoiceNumber || `INV-${selectedInvoice.id ? String(selectedInvoice.id).substring(0, 8) : "TEMP"}`}</p>
+                <p className="text-gray-500">Issue Date: {selectedInvoice.issueDate || selectedInvoice.date || "N/A"}</p>
+                <p className="text-gray-500">
+                  Due Date: {(() => {
+                    let dDate = selectedInvoice.dueDate;
+                    if (!dDate && (selectedInvoice.issueDate || selectedInvoice.date)) {
+                      const dObj = new Date(selectedInvoice.issueDate || selectedInvoice.date);
+                      dObj.setDate(dObj.getDate() + 14);
+                      dDate = dObj.toISOString().split("T")[0];
+                    }
+                    return dDate || "N/A";
+                  })()}
+                </p>
+                {(() => {
+                  const status = selectedInvoice.status || "unpaid";
+                  let dDate = selectedInvoice.dueDate || selectedInvoice.date;
+                  const isOverdue = status !== "paid" && dDate && new Date(dDate) < new Date();
+                  let badgeClass = "bg-amber-50 text-amber-700 border-amber-250";
+                  let label = "Pending";
+                  if (status === "paid") {
+                    badgeClass = "bg-green-50 text-green-700 border-green-200";
+                    label = "Paid";
+                  } else if (isOverdue) {
+                    badgeClass = "bg-red-50 text-red-700 border-red-200";
+                    label = "Overdue";
+                  }
+                  return (
+                    <span className={`inline-block mt-2 px-2.5 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wider ${badgeClass}`}>
+                      {label}
+                    </span>
+                  );
+                })()}
               </div>
             </div>
 
             {
     /* Billing addresses */
   }
-            <div className="grid grid-cols-2 gap-6 text-xs">
+            <div className="grid grid-cols-2 gap-6 text-xs text-gray-700">
               <div>
                 <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider block mb-2">Billed From:</span>
                 <p className="font-semibold text-gray-900">{user.businessName}</p>
-                <p className="text-gray-550 mt-0.5">Account executive: {user.name}</p>
-                <p className="text-gray-450">{user.email}</p>
+                <p className="text-gray-500 mt-0.5">Account executive: {user.name}</p>
+                <p className="text-gray-400">{user.email}</p>
               </div>
               <div>
                 <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider block mb-2">Billed To:</span>
-                <p className="font-semibold text-gray-900">{selectedInvoice.clientName}</p>
-                <p className="text-gray-550 mt-0.5">Billing: {selectedInvoice.clientEmail || "Contact not provided"}</p>
+                <p className="font-semibold text-gray-900">{selectedInvoice.clientName || selectedInvoice.customer_name || "Unnamed Client"}</p>
+                <p className="text-gray-500 mt-0.5">Billing: {selectedInvoice.clientEmail || "Contact not provided"}</p>
               </div>
             </div>
 
@@ -692,12 +782,19 @@ export default function Invoices({ user, invoices, products, onAddInvoice, onEdi
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 font-mono text-[11px]">
-                    {selectedInvoice.items.map((item, index) => <tr key={index}>
-                        <td className="py-3 px-4 font-sans text-xs text-gray-800 font-medium">{item.name}</td>
-                        <td className="py-3 px-4 text-center text-gray-600">{item.quantity}</td>
-                        <td className="py-3 px-4 text-right text-gray-600">{formatAmount(item.price, user?.currency)}</td>
-                        <td className="py-3 px-4 text-right font-bold text-gray-900">{formatAmount(item.total, user?.currency)}</td>
-                      </tr>)}
+                    {selectedInvoice.items.map((item, index) => {
+                      const qty = item.quantity !== undefined ? item.quantity : (item.qty !== undefined ? item.qty : 1);
+                      const price = item.price !== undefined ? item.price : (item.unit_price !== undefined ? item.unit_price : 0);
+                      const totalAmt = item.total !== undefined ? item.total : (qty * price);
+                      return (
+                        <tr key={index}>
+                          <td className="py-3 px-4 font-sans text-xs text-gray-800 font-medium">{item.name}</td>
+                          <td className="py-3 px-4 text-center text-gray-600">{qty}</td>
+                          <td className="py-3 px-4 text-right text-gray-600">{formatAmount(price, user?.currency)}</td>
+                          <td className="py-3 px-4 text-right font-bold text-gray-900">{formatAmount(totalAmt, user?.currency)}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
