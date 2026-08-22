@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Sparkles,
   DollarSign,
@@ -6,229 +7,163 @@ import {
   Send,
   Mic,
   Paperclip,
-  User
+  User,
+  ArrowRight,
+  Package,
+  FileText,
+  Activity,
+  TrendingUp,
+  AlertCircle,
+  CheckCircle
 } from "lucide-react";
 import { formatAmount } from "../types";
 
-const copilotThemeStyles = {
-  cosmic: {
-    accentText: "text-purple-400",
-    accentBg: "bg-purple-500/10 border-purple-500/20",
-    btnAccent: "bg-gradient-to-tr from-purple-600 via-indigo-600 to-cyan-500 text-gray-900 shadow-purple-600/20 hover:from-purple-500 hover:to-cyan-400",
-    textGradient: "from-purple-400 via-indigo-400 to-cyan-400",
-    chartColor: "#a855f7",
-    chartSecondary: "#06b6d4"
-  },
-  emerald: {
-    accentText: "text-teal-700",
-    accentBg: "bg-emerald-500/10 border-emerald-500/20",
-    btnAccent: "bg-gradient-to-tr from-emerald-600 via-teal-600 to-amber-500 text-gray-900 shadow-emerald-600/20 hover:from-emerald-500 hover:to-amber-400",
-    textGradient: "from-emerald-400 via-teal-400 to-amber-300",
-    chartColor: "#10b981",
-    chartSecondary: "#f59e0b"
-  },
-  copper: {
-    accentText: "text-amber-700",
-    accentBg: "bg-whitember-500/10 border-amber-500/20",
-    btnAccent: "bg-gradient-to-tr from-amber-600 via-orange-600 to-yellow-500 text-gray-900 shadow-amber-600/20 hover:from-amber-500 hover:to-yellow-400",
-    textGradient: "from-amber-400 via-orange-400 to-yellow-300",
-    chartColor: "#f59e0b",
-    chartSecondary: "#ef4444"
-  },
-  lagoon: {
-    accentText: "text-blue-400",
-    accentBg: "bg-blue-500/10 border-blue-500/20",
-    btnAccent: "bg-gradient-to-tr from-blue-600 via-cyan-600 to-teal-500 text-gray-900 shadow-blue-600/20 hover:from-blue-500 hover:to-teal-400",
-    textGradient: "from-blue-400 via-cyan-400 to-teal-400",
-    chartColor: "#3b82f6",
-    chartSecondary: "#14b8a6"
-  }
-};
-
-// Simple bold inline parser
-function parseInlineFormatting(text) {
-  const parts = [];
-  const boldRegex = /\*\*(.*?)\*\*/g;
-  let lastIndex = 0;
-  let match;
-
-  while ((match = boldRegex.exec(text)) !== null) {
-    const before = text.substring(lastIndex, match.index);
-    if (before) parts.push(before);
-    parts.push(<strong key={`b-${match.index}`} className="font-bold text-gray-950">{match[1]}</strong>);
-    lastIndex = boldRegex.lastIndex;
-  }
-  
-  const after = text.substring(lastIndex);
-  if (after) parts.push(after);
-
-  if (parts.length === 0) return text;
-  return <>{parts}</>;
-}
-
-function CopilotMarkdown({ text, user }) {
-  if (!text) return null;
-  const lines = text.split("\n");
-  const elements = [];
-  let currentTable = null;
-  let inList = false;
-  let listItems = [];
-
-  const flushList = (key) => {
-    if (listItems.length > 0) {
-      elements.push(
-        <ul key={`ul-${key}`} className="list-disc pl-5 space-y-1 my-2 text-xs text-gray-700">
-          {listItems.map((li, idx) => (
-            <li key={idx}>{li}</li>
-          ))}
-        </ul>
-      );
-      listItems = [];
-    }
-    inList = false;
-  };
-
-  const renderCellContent = (cell) => {
-    const trimmed = cell.trim();
-    if (trimmed.includes("🔴 Overdue")) {
-      return <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-bold bg-red-50 text-red-755 border border-red-200">🔴 Overdue</span>;
-    }
-    if (trimmed.includes("🟡 Pending")) {
-      return <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-50 text-amber-700 border border-amber-200">🟡 Pending</span>;
-    }
-    if (trimmed.includes("🟢 Paid") || trimmed.includes("🟢 Settled")) {
-      return <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-bold bg-green-50 text-green-700 border border-green-200">🟢 Paid</span>;
-    }
-    return parseInlineFormatting(cell);
-  };
-
-  const flushTable = (key) => {
-    if (currentTable) {
-      const rows = currentTable.rows;
-      const headers = currentTable.headers;
-      elements.push(
-        <div key={`table-${key}`} className="overflow-x-auto my-3 border border-gray-200 rounded-lg bg-gray-50/50">
-          <table className="min-w-full text-left text-xs text-gray-700 border-collapse">
-            <thead>
-              <tr className="border-b border-gray-200 bg-gray-150/40 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-                {headers.map((h, idx) => (
-                  <th key={idx} className="py-2 px-4">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 font-sans text-xs">
-              {rows.map((row, rIdx) => (
-                <tr key={rIdx} className="hover:bg-gray-50/20">
-                  {row.map((cell, cIdx) => (
-                    <td key={cIdx} className="py-2.5 px-4 text-gray-700">{renderCellContent(cell)}</td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      );
-      currentTable = null;
-    }
-  };
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
-
-    if (line.startsWith("|")) {
-      flushList(i);
-      const cells = line.split("|").map(c => c.trim()).filter((_, idx, arr) => idx > 0 && idx < arr.length - 1);
-      
-      if (cells.every(c => c.startsWith(":") || c.startsWith("-"))) {
-        continue;
-      }
-      
-      if (!currentTable) {
-        currentTable = { headers: cells, rows: [] };
-      } else {
-        currentTable.rows.push(cells);
-      }
-      continue;
-    } else {
-      flushTable(i);
-    }
-
-    if (line.startsWith("*") || line.startsWith("-")) {
-      inList = true;
-      const itemContent = line.substring(1).trim();
-      listItems.push(parseInlineFormatting(itemContent));
-      continue;
-    } else {
-      flushList(i);
-    }
-
-    if (line.startsWith("###")) {
-      elements.push(
-        <h3 key={i} className="text-sm font-bold text-gray-900 mt-4 mb-2 font-sans flex items-center gap-1.5 border-b border-gray-100 pb-1.5">
-          {parseInlineFormatting(line.replace("###", "").trim())}
-        </h3>
-      );
-    } else if (line.startsWith("####")) {
-      elements.push(
-        <h4 key={i} className="text-xs font-bold text-gray-805 mt-3 mb-1.5 font-sans">
-          {parseInlineFormatting(line.replace("####", "").trim())}
-        </h4>
-      );
-    } else if (line) {
-      elements.push(
-        <p key={i} className="text-xs text-gray-700 leading-relaxed my-1.5 font-sans">
-          {parseInlineFormatting(line)}
-        </p>
-      );
-    }
-  }
-
-  flushList(lines.length);
-  flushTable(lines.length);
-
-  return <div className="space-y-1">{elements}</div>;
-}
-
-function StreamedMessage({ content, isLatest, user }) {
-  const [displayedText, setDisplayedText] = useState("");
-  
-  useEffect(() => {
-    if (!isLatest) {
-      setDisplayedText(content);
-      return;
-    }
-    
-    let currentText = "";
-    let index = 0;
-    const interval = setInterval(() => {
-      if (index < content.length) {
-        currentText += content[index];
-        setDisplayedText(currentText);
-        index++;
-      } else {
-        clearInterval(interval);
-      }
-    }, 4);
-    
-    return () => clearInterval(interval);
-  }, [content, isLatest]);
+// Standard components for structured AI responses
+function AICopilotMessageCard({ data, onActionClick }) {
+  const { main_text, insight, why_it_matters, recommendation, action } = data;
 
   return (
-    <div className="relative">
-      <CopilotMarkdown text={displayedText} user={user} />
-      {isLatest && displayedText.length < content.length && (
-        <span className="inline-block w-1.5 h-3.5 bg-indigo-650 animate-pulse ml-0.5" style={{ verticalAlign: "middle" }} />
+    <div className="space-y-4">
+      {/* Primary response text */}
+      <p className="text-xs text-gray-800 leading-relaxed font-sans font-medium">
+        {main_text}
+      </p>
+
+      {/* Structured segments */}
+      {(insight || why_it_matters || recommendation) && (
+        <div className="grid gap-3 mt-3 pt-3 border-t border-gray-100">
+          {insight && (
+            <div className="bg-emerald-50/40 border border-emerald-500/10 rounded-xl p-3.5 text-left">
+              <span className="text-[9px] font-bold text-teal-700 uppercase tracking-widest font-mono block">Insight</span>
+              <p className="text-xs text-gray-700 mt-1 leading-normal font-sans">{insight}</p>
+            </div>
+          )}
+          
+          {why_it_matters && (
+            <div className="bg-amber-50/40 border border-amber-500/10 rounded-xl p-3.5 text-left">
+              <span className="text-[9px] font-bold text-amber-700 uppercase tracking-widest font-mono block">Why It Matters</span>
+              <p className="text-xs text-gray-700 mt-1 leading-normal font-sans">{why_it_matters}</p>
+            </div>
+          )}
+
+          {recommendation && (
+            <div className="bg-indigo-50/40 border border-indigo-500/10 rounded-xl p-3.5 text-left">
+              <span className="text-[9px] font-bold text-indigo-750 uppercase tracking-widest font-mono block">Recommendation</span>
+              <p className="text-xs text-gray-700 mt-1 leading-normal font-sans">{recommendation}</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Action Button */}
+      {action && (
+        <div className="pt-1 flex justify-start">
+          <button
+            onClick={() => onActionClick(action)}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-teal-700 hover:bg-teal-800 text-white font-bold text-[10px] rounded-xl shadow-xs transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+          >
+            <span>{action.label}</span>
+            <ArrowRight className="w-3 h-3" />
+          </button>
+        </div>
       )}
     </div>
   );
 }
 
-export default function Copilot({ user, products, invoices, transactions, theme = "cosmic" }) {
+function AIBusinessHealthCard({ data, onActionClick }) {
+  const { revenue, expenses, profit, pending_collections, inventory_risk, top_insights, top_actions } = data;
+
+  return (
+    <div className="space-y-4">
+      <p className="text-xs text-gray-800 leading-relaxed font-sans font-medium">
+        {data.main_text}
+      </p>
+
+      {/* Metrics Grid */}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+        <div className="bg-gray-50 border border-gray-150 rounded-xl p-3.5 text-left">
+          <span className="text-[8px] font-bold text-gray-450 uppercase tracking-wider block font-mono">Revenue</span>
+          <span className="text-xs font-bold text-gray-900 block mt-0.5">{revenue || "—"}</span>
+        </div>
+        <div className="bg-gray-50 border border-gray-150 rounded-xl p-3.5 text-left">
+          <span className="text-[8px] font-bold text-gray-450 uppercase tracking-wider block font-mono">Expenses</span>
+          <span className="text-xs font-bold text-rose-600 block mt-0.5">{expenses || "—"}</span>
+        </div>
+        <div className="bg-gray-50 border border-gray-150 rounded-xl p-3.5 text-left col-span-2 md:col-span-1">
+          <span className="text-[8px] font-bold text-gray-450 uppercase tracking-wider block font-mono">Profit</span>
+          <span className="text-xs font-bold text-emerald-600 block mt-0.5">{profit || "—"}</span>
+        </div>
+        <div className="bg-gray-50 border border-gray-150 rounded-xl p-3.5 text-left">
+          <span className="text-[8px] font-bold text-gray-450 uppercase tracking-wider block font-mono">Pending Collections</span>
+          <span className="text-xs font-bold text-teal-700 block mt-0.5">{pending_collections || "—"}</span>
+        </div>
+        <div className="bg-gray-50 border border-gray-150 rounded-xl p-3.5 text-left">
+          <span className="text-[8px] font-bold text-gray-450 uppercase tracking-wider block font-mono">Inventory Risk</span>
+          <span className={`text-[10px] font-bold block mt-1 ${inventory_risk?.toLowerCase().includes("high") ? "text-rose-600 animate-pulse" : "text-emerald-600"}`}>
+            {inventory_risk || "Healthy"}
+          </span>
+        </div>
+      </div>
+
+      {/* Top 3 Insights */}
+      {top_insights && top_insights.length > 0 && (
+        <div className="pt-3 border-t border-gray-100 space-y-2">
+          <span className="text-[9px] font-bold text-teal-750 uppercase tracking-widest font-mono block">Top 3 Strategic Insights</span>
+          <ul className="space-y-1.5 pl-1">
+            {top_insights.slice(0, 3).map((insight, idx) => (
+              <li key={idx} className="flex gap-2 items-start text-xs text-gray-700 leading-normal">
+                <span className="w-4 h-4 flex items-center justify-center rounded bg-emerald-50 border border-emerald-100 text-[10px] font-bold text-teal-750 font-mono shrink-0 mt-0.5">{idx + 1}</span>
+                <span className="font-sans">{insight}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Top 3 Actions */}
+      {top_actions && top_actions.length > 0 && (
+        <div className="pt-3 border-t border-gray-100 space-y-2">
+          <span className="text-[9px] font-bold text-indigo-700 uppercase tracking-widest font-mono block">Top Actions & Interventions</span>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+            {top_actions.slice(0, 3).map((act, idx) => (
+              <button
+                key={idx}
+                onClick={() => onActionClick(act)}
+                className="p-3 bg-indigo-50/20 hover:bg-indigo-50/60 border border-indigo-100/50 hover:border-indigo-200 text-left rounded-xl transition-all cursor-pointer shadow-xs group hover:scale-[1.02] flex items-center justify-between"
+              >
+                <span className="text-[10px] font-bold text-indigo-750 block">{act.label}</span>
+                <ArrowRight className="w-3 h-3 text-indigo-400 group-hover:text-indigo-600 transition-colors shrink-0" />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AIErrorCard({ message }) {
+  return (
+    <div className="bg-rose-50/50 border border-rose-200 rounded-xl p-4 flex gap-3 items-start text-left">
+      <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+      <div className="space-y-1">
+        <p className="text-xs text-rose-700 font-medium leading-relaxed font-sans">
+          {message}
+        </p>
+        <span className="text-[9px] text-gray-450 block font-mono">
+          You can still review metrics from other dashboards.
+        </span>
+      </div>
+    </div>
+  );
+}
+
+export default function Copilot({ user, products, invoices, transactions, theme = "emerald" }) {
   const [messages, setMessages] = useState([]);
   const [chatInput, setChatInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
-  const styles = copilotThemeStyles[theme] || copilotThemeStyles.cosmic;
-
+  const navigate = useNavigate();
   const chatEndRef = useRef(null);
 
   useEffect(() => {
@@ -237,82 +172,112 @@ export default function Copilot({ user, products, invoices, transactions, theme 
     }
   }, [messages, isTyping]);
 
-  const handleSendMessage = (textToSend) => {
+  const handleActionClick = (action) => {
+    if (!action) return;
+    const { action_type, payload } = action;
+    
+    if (action_type === "view_inventory") {
+      navigate("/inventory");
+    } else if (action_type === "request_restock") {
+      const productName = payload?.product_name || "";
+      const productId = payload?.product_id || "";
+      const qty = payload?.qty || 100;
+      
+      let foundProduct = products.find(p => p.id === productId);
+      if (!foundProduct && productName) {
+        foundProduct = products.find(p => p.name.toLowerCase() === productName.toLowerCase());
+      }
+      
+      if (!foundProduct) {
+        foundProduct = {
+          id: productId || `p_${Date.now()}`,
+          name: productName || "Procurement Item",
+          supplier: "Waaree",
+          category: "Solar Panels"
+        };
+      }
+      
+      navigate("/inventory", {
+        state: {
+          autoOpenRestock: {
+            product: foundProduct,
+            qty: qty
+          }
+        }
+      });
+    } else if (action_type === "view_sales") {
+      navigate("/reports");
+    } else if (action_type === "view_billing") {
+      navigate("/invoices");
+    } else if (action_type === "view_staff") {
+      navigate("/workforce");
+    }
+  };
+
+  const handleSendMessage = async (textToSend) => {
     const text = (textToSend || chatInput).trim();
     if (!text) return;
 
     const userMsg = {
       id: `user-${Date.now()}`,
       role: "user",
-      content: text
+      content: text,
+      timestamp: new Date().toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
     };
+
     setMessages(prev => [...prev, userMsg]);
     setIsTyping(true);
     if (!textToSend) setChatInput("");
 
-    setTimeout(() => {
-      let replyContent = "";
-      const lower = text.toLowerCase();
+    try {
+      const response = await fetch("/api/copilot/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: text })
+      });
 
-      if (lower.includes("stock") || lower.includes("restock") || lower.includes("reorder")) {
-        const lowStock = products.filter(p => p.quantity <= (p.minStock || p.min_stock || 10));
-        if (lowStock.length > 0) {
-          replyContent = `### Low Stock Inventory Audit\n\nI found **${lowStock.length}** product(s) currently low in stock or below safety threshold. Restocking is highly recommended:\n\n| Product Name | Category | SKU | Current Stock | Min Safety Level |\n| :--- | :--- | :--- | :---: | :---: |\n` +
-            lowStock.map(p => `| ${p.name} | ${p.category || "N/A"} | \`${p.sku || "N/A"}\` | **${p.quantity}** | ${p.minStock || 10} |`).join("\n") +
-            `\n\n**Restock Action Item**: Place a replenishment order with Waaree/OEM vendors for these items immediately to avoid stockout downtime.`;
-        } else {
-          replyContent = `### Stock Levels Status\n\nAll products in your inventory database are currently **above safety thresholds**. No restocks are immediately required. Good job!`;
-        }
-      } else if (lower.includes("invoice") || lower.includes("summary") || lower.includes("sale") || lower.includes("revenue")) {
-        const totalCount = invoices.length;
-        const paidCount = invoices.filter(i => i.status === "paid").length;
-        const unpaidInvoices = invoices.filter(i => i.status !== "paid");
-        
-        const sumPaid = invoices.filter(i => i.status === "paid").reduce((acc, i) => acc + (i.total || 0), 0);
-        const sumUnpaid = unpaidInvoices.reduce((acc, i) => acc + (i.total || 0), 0);
-        
-        replyContent = `### Monthly Invoice Summary\n\nHere is the breakdown of your generated invoices:\n\n* **Total Invoices**: ${totalCount} generated in total\n* **Paid Settled Invoices**: ${paidCount} (Valued at **${formatAmount(sumPaid, user?.currency)}**)\n* **Unpaid Ledger Balance**: ${unpaidInvoices.length} (Valued at **${formatAmount(sumUnpaid, user?.currency)}**)\n\n#### Highlights & Insights:\n- **Collectables Ledger**: You have outstanding collections of **${formatAmount(sumUnpaid, user?.currency)}** across unpaid invoices.\n- **Turnaround Efficiency**: Recommend automating payment reminders on Settings page for overdue invoices.`;
-      } else if (lower.includes("predict") || lower.includes("forecast") || lower.includes("next month")) {
-        replyContent = `### Reconciled Revenue Forecast\n\nBased on historical invoices and machine learning trends, here are the projections for the upcoming period:\n\n* **Forecasted Growth**: **+8.4%** projected month-over-month\n* **Expected Inflow (July/August)**: Approximately **${formatAmount(24500, user?.currency)}**\n* **Top Revenue Drivers**:\n  - Waaree Solar Panels\n  - High-Efficiency Inverters\n\n**Strategic Recommendation**: Secure additional inventory capacity for top solar items to capture the seasonal spikes in demand next month.`;
-      } else if (lower.includes("payment") || lower.includes("pending") || lower.includes("customer") || lower.includes("client")) {
-        const unpaid = invoices.filter(i => i.status !== "paid");
-        if (unpaid.length > 0) {
-          replyContent = `### Outstanding Customer Receivables\n\nThe following customers currently have pending payments on their accounts:\n\n| Customer Name | Invoice No. | Due Date | Outstanding Amount | Status |\n| :--- | :--- | :--- | :---: | :---: |\n` +
-            unpaid.map(i => {
-              let dDate = i.dueDate || i.date;
-              const isOverdue = dDate && new Date(dDate) < new Date();
-              return `| ${i.clientName || i.customer_name || "N/A"} | \`${i.invoiceNumber || `INV-${String(i.id).substring(0, 8)}`}\` | ${dDate || "N/A"} | **${formatAmount(i.total, user?.currency)}** | ${isOverdue ? "🔴 Overdue" : "🟡 Pending"} |`;
-            }).join("\n") +
-            `\n\n**Action Plan**: Review the action triggers in the Invoices Hub to dispatch follow-up alerts or settle payments directly.`;
-        } else {
-          replyContent = `### Receivables Ledger Status\n\nAll invoices are fully settled. There are currently no clients with outstanding pending invoice balances.`;
-        }
-      } else {
-        replyContent = `### AI Copilot Advisory Insights\n\nI am your business copilot command center. Here are the core highlights of your business stats:\n\n* **Products Count**: ${products.length} registered SKUs\n* **Invoices Logged**: ${invoices.length} invoices total\n* **Current User**: ${user.name} (${user.businessName})\n\nHow can I help you further? Try asking:\n- "Which products are low in stock?"\n- "Show customers with pending payments."\n- "Predict next month's sales projections."`;
+      if (!response.ok) {
+        throw new Error("Failed to connect to AI server");
       }
 
+      const data = await response.json();
+      
       setMessages(prev => [...prev, {
         id: `ai-${Date.now()}`,
         role: "assistant",
-        content: replyContent
+        data: data,
+        timestamp: new Date().toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
       }]);
+    } catch (err) {
+      console.error("Copilot API error:", err);
+      // Graceful error state card
+      setMessages(prev => [...prev, {
+        id: `ai-err-${Date.now()}`,
+        role: "assistant",
+        data: {
+          response_type: "error",
+          error_message: "AI analysis is temporarily unavailable. You can still review your latest business metrics from the dashboard."
+        },
+        timestamp: new Date().toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
+      }]);
+    } finally {
       setIsTyping(false);
-    }, 600);
+    }
   };
 
   return (
     <div className="animate-fade-in pb-4 max-w-5xl mx-auto h-[calc(100vh-140px)] flex flex-col" id="copilot-container">
       {/* Page Header */}
       <div className="mb-4 shrink-0 text-left">
-        <span className={`text-[10px] uppercase font-bold tracking-widest ${styles.accentText} font-mono flex items-center gap-1.5`}>
-          <Sparkles className="w-3.5 h-3.5 shrink-0" />
-          Conversational Assistant
+        <span className="text-[10px] uppercase font-bold tracking-widest text-teal-700 font-mono flex items-center gap-1.5">
+          <Sparkles className="w-3.5 h-3.5 shrink-0 text-teal-600" />
+          BizPilot Business Advisory Console
         </span>
         <h1 className="font-display text-2xl font-bold tracking-tight text-gray-900 mt-1">
-          BizPilot AI Copilot
+          AI Business Copilot
         </h1>
         <p className="text-xs text-gray-500 mt-0.5">
-          Ask anything about your business.
+          Consult our business advisor on cash flows, risks, low stocks, and executive aggregates.
         </p>
       </div>
 
@@ -322,32 +287,32 @@ export default function Copilot({ user, products, invoices, transactions, theme 
         <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-thin">
           {messages.length === 0 ? (
             /* Empty State */
-            <div className="flex flex-col items-center justify-center h-full max-w-xl mx-auto text-center space-y-8 py-8 animate-fade-in">
-              <div className="w-14 h-14 rounded-2xl bg-indigo-650 text-white flex items-center justify-center shadow-md animate-pulse-slow">
+            <div className="flex flex-col items-center justify-center h-full max-w-xl mx-auto text-center space-y-6 py-8 animate-fade-in">
+              <div className="w-14 h-14 rounded-2xl bg-teal-50 border border-teal-150 text-teal-700 flex items-center justify-center shadow-xs animate-pulse-slow">
                 <Sparkles className="w-7 h-7" />
               </div>
               <div className="space-y-2">
-                <h2 className="font-display text-xl font-bold text-gray-900">How can I help your business today?</h2>
-                <p className="text-xs text-gray-500 max-w-sm mx-auto leading-normal">
-                  Ask questions about your stocks, invoice records, sales predictions, or outstanding balances.
+                <h2 className="font-display text-lg font-bold text-gray-900">How can I assist your business planning today?</h2>
+                <p className="text-xs text-gray-400 max-w-sm mx-auto leading-normal">
+                  I act as a dedicated business advisor. Ask me questions about operational health, risks, low stocks, or financial parameters.
                 </p>
               </div>
               
-              {/* Four Suggested Prompt Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full pt-4">
+              {/* Suggested Starter Prompt Chips */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full pt-4">
                 {[
-                  { title: "Check low stock", text: "Which products are low in stock?", desc: "Analyze SKU safety levels" },
-                  { title: "Summarize invoices", text: "Generate this month's invoice summary.", desc: "Revenue & payment logs" },
-                  { title: "Predict next month's sales", text: "Predict next month's sales.", desc: "Growth projections audit" },
-                  { title: "Pending customer payments", text: "Which customers have pending payments?", desc: "Outstanding invoice balances" }
+                  { title: "Business Health Today", text: "How is my business doing today?", desc: "Analyze revenues, profit, risks" },
+                  { title: "Procurement Risk Audit", text: "Which products need attention?", desc: "Identify low stock thresholds" },
+                  { title: "Analyze Profit Change", text: "Why did my profit change?", desc: "Evaluate outflows and bills" },
+                  { title: "Action Plan Checklist", text: "Give me today's action plan.", desc: "Critical tasks and interventions" }
                 ].map((item, idx) => (
                   <button
                     key={idx}
                     onClick={() => handleSendMessage(item.text)}
-                    className="p-4 bg-gray-50/50 hover:bg-indigo-50/50 border border-gray-200 hover:border-indigo-300 text-left rounded-2xl transition-all cursor-pointer shadow-xs group hover:scale-[1.02] active:scale-[0.98] duration-150 flex flex-col justify-between min-h-[90px]"
+                    className="p-4 bg-gray-50/50 hover:bg-teal-50/30 border border-gray-200 hover:border-teal-300 text-left rounded-2xl transition-all cursor-pointer shadow-xs group hover:scale-[1.01] active:scale-[0.99] duration-150 flex flex-col justify-between min-h-[85px]"
                   >
-                    <span className="text-xs font-bold text-gray-855 group-hover:text-indigo-650 transition-colors block">{item.title}</span>
-                    <span className="text-[10px] text-gray-400 block mt-1 leading-normal">{item.desc}</span>
+                    <span className="text-xs font-bold text-gray-800 group-hover:text-teal-700 transition-colors block">{item.title}</span>
+                    <span className="text-[10px] text-gray-400 block mt-1 leading-normal font-sans">{item.desc}</span>
                   </button>
                 ))}
               </div>
@@ -355,60 +320,62 @@ export default function Copilot({ user, products, invoices, transactions, theme 
           ) : (
             /* Message List */
             <div className="space-y-6">
-              {messages.map((msg, index) => {
-                const isLatestAI = msg.role === "assistant" && index === messages.length - 1;
-                return (
-                  <div key={msg.id} className={`flex gap-3.5 items-start ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                    {msg.role === "assistant" && (
-                      <div className="w-8 h-8 rounded-xl bg-indigo-50 border border-indigo-150 flex items-center justify-center text-indigo-655 shrink-0 shadow-xs">
-                        <Sparkles className="w-4 h-4" />
-                      </div>
-                    )}
-                    
-                    <div className="flex flex-col space-y-1 max-w-[75%]">
-                      <div
-                        className={`p-4 rounded-2xl text-xs shadow-sm ${
-                          msg.role === "user"
-                            ? "bg-indigo-600 text-white rounded-tr-none text-left"
-                            : "bg-white border border-gray-200 text-gray-800 rounded-tl-none text-left"
-                        }`}
-                      >
-                        {msg.role === "user" ? (
-                          <p className="leading-relaxed whitespace-pre-wrap">{msg.content}</p>
-                        ) : (
-                          <StreamedMessage
-                            content={msg.content}
-                            isLatest={isLatestAI}
-                            user={user}
-                          />
-                        )}
-                      </div>
-                      <span className={`text-[8px] text-gray-450 font-mono px-1 ${msg.role === "user" ? "text-right" : "text-left"}`}>
-                        {new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
-                      </span>
+              {messages.map((msg) => (
+                <div key={msg.id} className={`flex gap-3.5 items-start ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                  {msg.role === "assistant" && (
+                    <div className="w-8 h-8 rounded-xl bg-teal-50 border border-teal-150 flex items-center justify-center text-teal-700 shrink-0 shadow-xs">
+                      <Sparkles className="w-4 h-4" />
                     </div>
-
-                    {msg.role === "user" && (
-                      <div className="w-8 h-8 rounded-xl bg-gray-155 border border-gray-250/60 flex items-center justify-center text-gray-600 shrink-0 shadow-xs">
-                        <User className="w-4 h-4" />
-                      </div>
-                    )}
+                  )}
+                  
+                  <div className="flex flex-col space-y-1 max-w-[80%]">
+                    <div
+                      className={`p-4 rounded-2xl text-xs shadow-sm ${
+                        msg.role === "user"
+                          ? "bg-teal-700 text-white rounded-tr-none text-left"
+                          : "bg-white border border-gray-200 text-gray-800 rounded-tl-none text-left"
+                      }`}
+                    >
+                      {msg.role === "user" ? (
+                        <p className="leading-relaxed whitespace-pre-wrap font-sans">{msg.content}</p>
+                      ) : (
+                        (() => {
+                          const type = msg.data?.response_type;
+                          if (type === "business_health") {
+                            return <AIBusinessHealthCard data={msg.data} onActionClick={handleActionClick} />;
+                          } else if (type === "error") {
+                            return <AIErrorCard message={msg.data.error_message} />;
+                          } else {
+                            return <AICopilotMessageCard data={msg.data} onActionClick={handleActionClick} />;
+                          }
+                        })()
+                      )}
+                    </div>
+                    <span className={`text-[8px] text-gray-400 font-mono px-1 ${msg.role === "user" ? "text-right" : "text-left"}`}>
+                      {msg.timestamp}
+                    </span>
                   </div>
-                );
-              })}
+
+                  {msg.role === "user" && (
+                    <div className="w-8 h-8 rounded-xl bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-600 shrink-0 shadow-xs">
+                      <User className="w-4 h-4" />
+                    </div>
+                  )}
+                </div>
+              ))}
 
               {isTyping && (
                 <div className="flex gap-3.5 items-start justify-start animate-fade-in">
-                  <div className="w-8 h-8 rounded-xl bg-indigo-50 border border-indigo-150 flex items-center justify-center text-indigo-655 shrink-0 shadow-xs animate-pulse">
+                  <div className="w-8 h-8 rounded-xl bg-teal-50 border border-teal-150 flex items-center justify-center text-teal-700 shrink-0 shadow-xs animate-pulse">
                     <Sparkles className="w-4 h-4" />
                   </div>
-                  <div className="p-4 bg-white border border-gray-200 rounded-2xl rounded-tl-none text-xs text-gray-505 shadow-xs flex items-center gap-2">
-                    <div className="flex items-center gap-1.5 font-semibold text-indigo-650">
-                      <span>Thinking</span>
-                      <span className="flex gap-1.5">
-                        <span className="w-1.5 h-1.5 bg-indigo-600 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                        <span className="w-1.5 h-1.5 bg-indigo-600 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                        <span className="w-1.5 h-1.5 bg-indigo-600 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                  <div className="p-4 bg-white border border-gray-200 rounded-2xl rounded-tl-none text-xs text-gray-400 shadow-xs flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 font-semibold text-teal-700">
+                      <span>Analyzing Context</span>
+                      <span className="flex gap-1">
+                        <span className="w-1 h-1.5 bg-teal-700 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                        <span className="w-1 h-1.5 bg-teal-700 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                        <span className="w-1 h-1.5 bg-teal-700 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
                       </span>
                     </div>
                   </div>
@@ -419,16 +386,37 @@ export default function Copilot({ user, products, invoices, transactions, theme 
           )}
         </div>
 
+        {/* Suggested Question Chips (Only visible when conversation is active) */}
+        {messages.length > 0 && (
+          <div className="px-6 py-2 bg-gray-50/40 border-t border-gray-100 flex gap-2 overflow-x-auto scrollbar-none shrink-0">
+            {[
+              "How is my business doing today?",
+              "What is my biggest risk?",
+              "Which products need restocking?",
+              "Give me today's action plan."
+            ].map((chipText, idx) => (
+              <button
+                key={idx}
+                onClick={() => handleSendMessage(chipText)}
+                disabled={isTyping}
+                className="px-3 py-1.5 bg-white hover:bg-teal-50/50 border border-gray-200 hover:border-teal-200 text-[10px] font-semibold text-gray-600 hover:text-teal-750 rounded-lg shadow-2xs transition-all shrink-0 cursor-pointer disabled:opacity-50"
+              >
+                {chipText}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Bottom Input area */}
-        <div className="p-4 bg-gray-50/50 border-t border-gray-150 flex gap-3 items-center shrink-0">
+        <div className="p-4 bg-gray-50/50 border-t border-gray-200 flex gap-3 items-center shrink-0">
           <button
             type="button"
-            className="p-3 bg-white hover:bg-gray-50 border border-gray-250 text-gray-500 rounded-xl transition-colors cursor-pointer shrink-0 shadow-xs"
+            className="p-3 bg-white hover:bg-gray-50 border border-gray-200 text-gray-400 rounded-xl transition-colors cursor-pointer shrink-0 shadow-xs"
             title="Attach File"
           >
             <Paperclip className="w-4 h-4" />
           </button>
-          <div className="flex-1 relative flex items-center bg-white border border-gray-250 rounded-xl focus-within:border-indigo-500 transition-colors shadow-xs">
+          <div className="flex-1 relative flex items-center bg-white border border-gray-200 rounded-xl focus-within:border-teal-500 transition-colors shadow-xs">
             <textarea
               rows={1}
               value={chatInput}
@@ -439,8 +427,8 @@ export default function Copilot({ user, products, invoices, transactions, theme 
                   handleSendMessage();
                 }
               }}
-              placeholder="Ask about stock levels, invoice summaries, forecasts, or customer balances..."
-              className="w-full bg-transparent text-xs py-3 px-4 pr-10 text-gray-900 focus:outline-none placeholder-gray-400 resize-none max-h-24 scrollbar-none font-sans"
+              placeholder="Ask about inventory restocking, billing changes, workforce risks, or today's strategic health summary..."
+              className="w-full bg-transparent text-xs py-3 px-4 pr-10 text-gray-900 focus:outline-none placeholder-gray-450 resize-none max-h-24 scrollbar-none font-sans"
             />
             <button
               type="button"
@@ -453,7 +441,7 @@ export default function Copilot({ user, products, invoices, transactions, theme 
           <button
             onClick={() => handleSendMessage()}
             disabled={isTyping}
-            className="p-3.5 bg-indigo-600 hover:bg-indigo-755 text-white rounded-xl transition-colors cursor-pointer shadow-md shrink-0 flex items-center justify-center disabled:opacity-50"
+            className="p-3.5 bg-teal-700 hover:bg-teal-800 text-white rounded-xl transition-colors cursor-pointer shadow-md shrink-0 flex items-center justify-center disabled:opacity-50"
             title="Send Message"
           >
             <Send className="w-4 h-4" />

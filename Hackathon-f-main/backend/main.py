@@ -11,7 +11,7 @@ from typing import List, Optional
 
 from db import get_collection
 from pdf import generate_invoice_pdf
-from ai import extract_bill_from_image, generate_report_recommendations
+from ai import extract_bill_from_image, generate_report_recommendations, ask_copilot_assistant
 
 # Configure logging
 logger = logging.getLogger("bizpilot_backend")
@@ -703,6 +703,140 @@ def pay_worker_wages(payload: PayWagePayload):
     bills_col.insert_one(bill_doc)
     
     return {"status": "success", "paid_amount": unpaid}
+
+class CopilotChatRequest(BaseModel):
+    message: str
+
+@app.post("/api/copilot/chat")
+def copilot_chat(payload: CopilotChatRequest):
+    try:
+        # 1. Products
+        products = get_derived_products()
+        
+        # 2. Invoices
+        invoices = list(get_collection("invoices").find({}))
+        
+        # 3. Bills
+        bills = list(get_collection("bills").find({}))
+        
+        # 4. Workers
+        workers = list(get_collection("workers").find({}))
+        
+        # 5. Financial stats
+        gross_revenue = sum(float(inv.get("total", 0)) for inv in invoices)
+        material_cost = sum(float(b.get("total", 0)) for b in bills if b.get("billType") in ["materials", "added"])
+        
+        # Wages
+        attendance = list(get_collection("attendance").find({}))
+        wages = 0.0
+        for w in workers:
+            w_id = w.get("id")
+            w_att = [a for a in attendance if a.get("worker_id") == w_id]
+            days_present = sum(1 for a in w_att if a.get("status") == "present")
+            hours_worked = sum(float(a.get("hours_worked", 0)) for a in w_att)
+            if "daily_wage_rate" in w:
+                wages += days_present * float(w.get("daily_wage_rate", 0))
+            elif "hourly_rate" in w:
+                wages += hours_worked * float(w.get("hourly_rate", 0))
+                
+        medical = sum(float(b.get("total", 0)) for b in bills if b.get("billType") == "medical")
+        transport = sum(float(b.get("total", 0)) for b in bills if b.get("billType") == "transport")
+        other_cost = sum(float(b.get("total", 0)) for b in bills if b.get("billType") == "other")
+        
+        total_expenses = material_cost + wages + medical + transport + other_cost
+        net_profit = gross_revenue - total_expenses
+        profit_margin = (net_profit / gross_revenue * 100.0) if gross_revenue > 0 else 0.0
+        
+        # Pending collections (unpaid invoices)
+        pending_collections = sum(float(inv.get("total", 0)) for inv in invoices if inv.get("status") == "unpaid")
+        
+        # Top selling products
+        movements = list(get_collection("stock_movements").find({"type": "sold"}))
+        sales_count = {}
+        for m in movements:
+            pid = m.get("product_id")
+            qty = int(m.get("quantity", 0))
+            sales_count[pid] = sales_count.get(pid, 0) + qty
+            
+        products_map = {p.get("id"): p.get("name") for p in products}
+        top_selling = []
+        for pid, qty in sorted(sales_count.items(), key=lambda x: x[1], reverse=True)[:3]:
+            if pid in products_map:
+                top_selling.append(products_map[pid])
+                
+        # Workers representation
+        workers_formatted = []
+        for w in workers:
+            workers_formatted.append({
+                "id": w.get("id"),
+                "name": w.get("name"),
+                "role": w.get("role"),
+                "unpaidWages": float(w.get("unpaidWages", 0.0)),
+                "totalWagesPaid": float(w.get("totalWagesPaid", 0.0))
+            })
+            
+        # Get active user business currency
+        p_doc = get_collection("profile").find_one({})
+        currency = p_doc.get("currency", "INR") if p_doc else "INR"
+        
+        # Restock requests
+        stock_requests = list(get_collection("stock_requests").find({}))
+        stock_requests_formatted = [
+            {
+                "id": sr.get("id"),
+                "productId": sr.get("product_id"),
+                "productName": products_map.get(sr.get("product_id"), "Unknown Product"),
+                "requestedQty": sr.get("requested_qty"),
+                "status": sr.get("status"),
+                "requestedBy": sr.get("requested_by"),
+                "note": sr.get("note", "")
+            } for sr in stock_requests
+        ]
+
+        # Recent operations (Audit trail)
+        recent_operations = []
+        for m in sorted(list(get_collection("stock_movements").find({})), key=lambda x: x.get("id", ""), reverse=True)[:5]:
+            p_name = products_map.get(m.get("product_id"), "Product")
+            recent_operations.append({
+                "time": m.get("date") or "Recently",
+                "type": f"Inventory {m.get('type').capitalize()}",
+                "message": f"{p_name}: {m.get('quantity')} units"
+            })
+        
+        business_context = {
+            "grossRevenue": gross_revenue,
+            "totalExpenses": total_expenses,
+            "netProfit": net_profit,
+            "profitMargin": profit_margin,
+            "pendingCollections": pending_collections,
+            "topSellingProducts": top_selling,
+            "products": [
+                {
+                    "id": p.get("id"),
+                    "name": p.get("name"),
+                    "quantity": p.get("quantity", 0),
+                    "minStock": p.get("minStock", 5),
+                    "supplier": p.get("supplier", "Local supplier")
+                } for p in products
+            ],
+            "workers": workers_formatted,
+            "currency": currency,
+            "restockRequests": stock_requests_formatted,
+            "recentOperations": recent_operations
+        }
+        
+        response = ask_copilot_assistant(payload.message, business_context)
+        return response
+    except Exception as e:
+        logger.error(f"Error in copilot chat endpoint: {e}")
+        return {
+            "response_type": "standard",
+            "main_text": "AI analysis is temporarily unavailable. You can still review your latest business metrics from the dashboard.",
+            "insight": "Failed to connect to the analysis engine.",
+            "why_it_matters": "Active metrics could not be fetched due to an internal server exception.",
+            "recommendation": "Review dashboard panels manually.",
+            "action": None
+        }
 
 @app.post("/api/reports/daily/generate")
 def generate_report_with_ai(request_data: dict):

@@ -490,7 +490,25 @@
       "status": "pending",
       "date": "2026-07-14",
       "note": "running low, customers asking"
+    },
+    {
+      "id": "sr_1787410863",
+      "product_id": "p5",
+      "requested_qty": 100,
+      "requested_by": "Test User",
+      "status": "pending",
+      "date": "2026-08-22",
+      "note": "AI Recommended Restock via Email"
     }
   ],
-  "profile": []
+  "profile": [
+    {
+      "id": "profile_active",
+      "email": "test@example.com",
+      "name": "Test User",
+      "businessName": "Test Business",
+      "businessType": "Wholesale & Distribution",
+      "currency": "INR"
+    }
+  ]
 }

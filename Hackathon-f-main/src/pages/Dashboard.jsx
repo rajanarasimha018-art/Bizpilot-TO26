@@ -22,7 +22,9 @@ import {
   FileText,
   Camera,
   RefreshCw,
-  Loader2
+  Loader2,
+  Mail,
+  MessageSquare
 } from "lucide-react";
 import {
   AreaChart,
@@ -423,10 +425,139 @@ export default function Dashboard({
   theme = "cosmic",
   onChangeTheme,
   onAddProduct,
-  onEditProduct
+  onEditProduct,
+  onRefreshData
 }) {
   const navigate = useNavigate();
   const dbTheme = dashboardThemeStyles[theme] || dashboardThemeStyles.cosmic;
+
+  const [activeRestocks, setActiveRestocks] = useState(() => {
+    return JSON.parse(localStorage.getItem("bizpilot_active_restocks") || "{}");
+  });
+
+  useEffect(() => {
+    const existingLogs = localStorage.getItem("bizpilot_audit_trail");
+    if (!existingLogs) {
+      const defaultLogs = [
+        {
+          time: "20:25",
+          type: "Restock received",
+          message: "+100 units added to inventory (Smart Net-Metering Power Gateway Controller)"
+        },
+        {
+          time: "20:19",
+          type: "Restock request initiated",
+          message: "Dealer: Local supplier | Communication: Email"
+        },
+        {
+          time: "20:18",
+          type: "AI detected low stock",
+          message: "Smart Net-Metering Power Gateway Controller: 100 units recommended"
+        }
+      ];
+      localStorage.setItem("bizpilot_audit_trail", JSON.stringify(defaultLogs));
+    }
+  }, []);
+
+  const initiateRestock = async (product, qty, communicationType) => {
+    try {
+      const res = await fetch("/api/stock-requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          productId: product.id,
+          requestedQty: qty,
+          requestedBy: user?.name || "Business Owner",
+          note: `AI Recommended Restock via ${communicationType}`
+        })
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        const requestId = data.request_id;
+        
+        const timestamp = new Date().toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+        const dateString = new Date().toLocaleDateString(undefined, { month: "short", day: "numeric" });
+        const fullTime = `${dateString} ${timestamp}`;
+        
+        const activeRestock = {
+          id: requestId,
+          productId: product.id,
+          productName: product.name,
+          qty: qty,
+          dealer: product.supplier || "Local Supplier",
+          status: "Request Initiated",
+          communication: `${communicationType} Draft Created`,
+          timestamp: fullTime
+        };
+        
+        const restocks = JSON.parse(localStorage.getItem("bizpilot_active_restocks") || "{}");
+        restocks[product.id] = activeRestock;
+        localStorage.setItem("bizpilot_active_restocks", JSON.stringify(restocks));
+        setActiveRestocks(restocks);
+        
+        const auditLogs = JSON.parse(localStorage.getItem("bizpilot_audit_trail") || "[]");
+        const newLogs = [
+          {
+            time: timestamp,
+            type: "AI detected low stock",
+            message: `${product.name}: ${qty} units recommended`
+          },
+          {
+            time: timestamp,
+            type: "Restock request initiated",
+            message: `Dealer: ${product.supplier || "Local Supplier"} | Comm: ${communicationType}`
+          },
+          ...auditLogs
+        ];
+        localStorage.setItem("bizpilot_audit_trail", JSON.stringify(newLogs));
+        
+        if (onRefreshData) {
+          await onRefreshData();
+        }
+      }
+    } catch (err) {
+      console.error("Failed to initiate restock in backend:", err);
+    }
+  };
+
+  const handleMarkReceived = async (req) => {
+    try {
+      const res = await fetch(`/api/stock-requests/${req.id}/receive`, {
+        method: "PATCH"
+      });
+      
+      if (res.ok) {
+        const timestamp = new Date().toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+        
+        const restocks = JSON.parse(localStorage.getItem("bizpilot_active_restocks") || "{}");
+        if (restocks[req.productId]) {
+          restocks[req.productId].status = "Received";
+          localStorage.setItem("bizpilot_active_restocks", JSON.stringify(restocks));
+          setActiveRestocks(restocks);
+        }
+        
+        const auditLogs = JSON.parse(localStorage.getItem("bizpilot_audit_trail") || "[]");
+        const newLogs = [
+          {
+            time: timestamp,
+            type: "Restock received",
+            message: `+${req.qty} units added to inventory (${req.productName})`
+          },
+          ...auditLogs
+        ];
+        localStorage.setItem("bizpilot_audit_trail", JSON.stringify(newLogs));
+        
+        triggerToast("Restock received — inventory updated successfully.");
+        
+        if (onRefreshData) {
+          await onRefreshData();
+        }
+      }
+    } catch (err) {
+      console.error("Failed to mark request received in backend:", err);
+    }
+  };
 
   const getCardAnimation = (index) => ({
     initial: { opacity: 0, y: 30, scale: 0.95 },
@@ -1169,6 +1300,102 @@ Restock ${lowStockProducts.length > 0 ? `200 units of ${lowStockProducts[0].name
     printWindow.document.close();
   };
 
+  const demoSuppliers = {
+    "ABC Foods": {
+      name: "ABC Foods Supply",
+      email: "orders@abcfoods.com",
+      phone: "+919876543210"
+    },
+    "Nestlé Wholesale": {
+      name: "Nestlé Wholesale Supply",
+      email: "procurement@nestle-dist.com",
+      phone: "+918765432109"
+    },
+    "Waaree": {
+      name: "Waaree Solar Technologies",
+      email: "fulfillment@waaree.com",
+      phone: "+919988776655"
+    },
+    "Apex Power": {
+      name: "Apex Power Distribution",
+      email: "sales@apexpower.com",
+      phone: "+917766554433"
+    }
+  };
+
+  const getSupplierDetails = (supplierName) => {
+    const name = supplierName || "Default Supplier";
+    if (demoSuppliers[name]) {
+      return demoSuppliers[name];
+    }
+    const slug = name.toLowerCase().replace(/[^a-z0-9]/g, "");
+    return {
+      name: name,
+      email: `orders@${slug || "supplier"}.com`,
+      phone: "+919900990099"
+    };
+  };
+
+  const [restockModalOpen, setRestockModalOpen] = useState(false);
+  const [selectedRestockProduct, setSelectedRestockProduct] = useState(null);
+  const [recommendedQty, setRecommendedQty] = useState(100);
+
+  const handleRequestRestock = (product, recommendedAmount = 100) => {
+    setSelectedRestockProduct(product);
+    setRecommendedQty(recommendedAmount);
+    setRestockModalOpen(true);
+  };
+
+  const handleDraftEmail = async () => {
+    if (!selectedRestockProduct) return;
+    const supplierInfo = getSupplierDetails(selectedRestockProduct.supplier);
+    const subject = encodeURIComponent(`Restock Request — ${selectedRestockProduct.name} × ${recommendedQty}`);
+    const body = encodeURIComponent(
+`Dear ${supplierInfo.name},
+
+We would like to request ${recommendedQty} units of ${selectedRestockProduct.name}.
+
+Please confirm:
+- Availability
+- Unit price
+- Expected delivery date
+
+Thank you,
+${user?.businessName || "BizPilot Client"}
+Powered by BizPilot`
+    );
+    const mailtoUrl = `mailto:${supplierInfo.email}?subject=${subject}&body=${body}`;
+    window.open(mailtoUrl, "_self");
+    
+    await initiateRestock(selectedRestockProduct, recommendedQty, "Email");
+    
+    setRestockModalOpen(false);
+    triggerToast(`Email draft opened for ${supplierInfo.name}`);
+  };
+
+  const handleDraftWhatsApp = async () => {
+    if (!selectedRestockProduct) return;
+    const supplierInfo = getSupplierDetails(selectedRestockProduct.supplier);
+    const text = encodeURIComponent(
+`Hello ${supplierInfo.name},
+
+BizPilot is requesting ${recommendedQty} units of ${selectedRestockProduct.name} for ${user?.businessName || "our business"}.
+
+Please confirm availability, price, and expected delivery date.
+
+Thank you,
+BizPilot`
+    );
+    const cleanedPhone = supplierInfo.phone.replace(/[^0-9+]/g, "");
+    const whatsappUrl = `https://wa.me/${cleanedPhone}?text=${text}`;
+    window.open(whatsappUrl, "_blank");
+    
+    await initiateRestock(selectedRestockProduct, recommendedQty, "WhatsApp");
+    
+    setRestockModalOpen(false);
+    triggerToast(`WhatsApp message prepared for ${supplierInfo.name}`);
+  };
+
   const [toastMessage, setToastMessage] = useState(null);
   const triggerToast = (message) => {
     setToastMessage(message);
@@ -1351,10 +1578,63 @@ Restock ${lowStockProducts.length > 0 ? `200 units of ${lowStockProducts[0].name
                 </div>
               </div>
               
-              <div className="mt-3 bg-teal-50/50 rounded-lg p-2.5 border border-teal-100 text-[10px] text-teal-850 font-medium leading-relaxed">
-                <span className="font-bold text-teal-900 block mb-0.5 uppercase tracking-widest text-[8px]">AI Recommendation</span>
-                Restock {lowStockProducts.length > 0 ? `200 units of ${lowStockProducts[0].name.split(' ')[0]}` : "200 units of Printer Paper"} today.
-              </div>
+              {(() => {
+                const targetProduct = lowStockProducts.length > 0 ? lowStockProducts[0] : products[0];
+                if (!targetProduct) {
+                  return (
+                    <div className="mt-3 bg-teal-50/50 rounded-lg p-2.5 border border-teal-100 text-[10px] text-teal-850 font-medium">
+                      All stock levels are healthy today.
+                    </div>
+                  );
+                }
+                
+                const activeRequest = activeRestocks[targetProduct.id];
+                if (activeRequest) {
+                  return (
+                    <div className="mt-3 bg-teal-50/50 rounded-lg p-3 border border-teal-150 text-[10px] text-teal-850 space-y-2 text-left">
+                      <span className="font-bold text-teal-900 block uppercase tracking-widest text-[8px]">Restock Request Active</span>
+                      <div className="grid grid-cols-2 gap-1 font-mono text-[9px] text-gray-700">
+                        <div>Product:</div>
+                        <div className="font-bold text-gray-900 truncate">{activeRequest.productName}</div>
+                        <div>Quantity:</div>
+                        <div className="font-bold text-teal-850">{activeRequest.qty} Units</div>
+                        <div>Dealer:</div>
+                        <div className="font-bold text-gray-900 truncate">{activeRequest.dealer}</div>
+                        <div>Status:</div>
+                        <div className={`font-bold ${activeRequest.status === "Received" ? "text-emerald-705" : "text-amber-705"}`}>{activeRequest.status}</div>
+                        <div>Communication:</div>
+                        <div className="font-bold text-gray-900">✓ {activeRequest.communication}</div>
+                        <div>Timestamp:</div>
+                        <div className="font-bold text-gray-500">{activeRequest.timestamp}</div>
+                      </div>
+                      
+                      {activeRequest.status === "Request Initiated" && (
+                        <button
+                          onClick={() => handleMarkReceived(activeRequest)}
+                          className="mt-2 w-full py-1.5 bg-teal-700 hover:bg-teal-800 text-white font-bold rounded-lg text-[9px] uppercase tracking-wider transition-all cursor-pointer"
+                        >
+                          Mark as Received
+                        </button>
+                      )}
+                    </div>
+                  );
+                } else {
+                  return (
+                    <div className="mt-3 bg-teal-50/50 rounded-lg p-2.5 border border-teal-100 text-[10px] text-teal-850 font-medium flex flex-col gap-2">
+                      <div>
+                        <span className="font-bold text-teal-900 block mb-0.5 uppercase tracking-widest text-[8px]">AI Recommendation</span>
+                        Restock {targetProduct.name.split(' ')[0]} today.
+                      </div>
+                      <button
+                        onClick={() => handleRequestRestock(targetProduct, 100)}
+                        className="w-full py-1.5 bg-teal-700 hover:bg-teal-850 text-white font-bold rounded-lg text-[9px] uppercase tracking-wider transition-all cursor-pointer text-center"
+                      >
+                        Request Restock
+                      </button>
+                    </div>
+                  );
+                }
+              })()}
             </motion.div>
 
             {/* AI Quick Actions Card */}
@@ -1406,84 +1686,124 @@ Restock ${lowStockProducts.length > 0 ? `200 units of ${lowStockProducts[0].name
             </motion.div>
           </div>
 
-          {/* Business Health Score Widget */}
-          <motion.div {...getCardAnimation(6)} className="bg-white border border-gray-200 p-5 rounded-lg relative overflow-hidden flex flex-col justify-between h-full group hover:border-gray-300 transition-all duration-200 shadow-sm">
-            <div>
-              <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider flex items-center gap-1.5 mb-3">
-                <Activity className="w-3.5 h-3.5 text-teal-650 animate-pulse" />
-                Business Health
-              </span>
+          {/* Business Health Score Widget & Audit Trail */}
+          <div className="flex flex-col gap-6 justify-between h-full">
+            {/* Business Health Score Widget */}
+            <motion.div {...getCardAnimation(6)} className="bg-white border border-gray-200 p-5 rounded-lg relative overflow-hidden flex flex-col justify-between flex-1 group hover:border-gray-300 transition-all duration-200 shadow-sm">
+              <div>
+                <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider flex items-center gap-1.5 mb-3">
+                  <Activity className="w-3.5 h-3.5 text-teal-650 animate-pulse" />
+                  Business Health
+                </span>
 
-              <div className="flex items-center gap-5">
-                {/* Circular SVG Gauge */}
-                <div className="relative w-24 h-24 shrink-0 flex items-center justify-center">
-                  <svg className="w-full h-full transform -rotate-90">
-                    <circle
-                      cx="48"
-                      cy="48"
-                      r="40"
-                      stroke="#f1f5f9"
-                      strokeWidth="8"
-                      fill="transparent"
-                    />
-                    <circle
-                      cx="48"
-                      cy="48"
-                      r="40"
-                      stroke="url(#healthGradient)"
-                      strokeWidth="8"
-                      fill="transparent"
-                      strokeDasharray={2 * Math.PI * 40}
-                      strokeDashoffset={2 * Math.PI * 40 - (2 * Math.PI * 40 * animatedScore) / 100}
-                      strokeLinecap="round"
-                      className="transition-all duration-350 ease-out"
-                    />
-                    <defs>
-                      <linearGradient id="healthGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stopColor={dbTheme.chartRevenue} />
-                        <stop offset="100%" stopColor={dbTheme.chartRevenue} stopOpacity={0.8} />
-                      </linearGradient>
-                    </defs>
-                  </svg>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="text-lg font-bold text-gray-900 font-mono leading-none">
-                      {animatedScore}
-                    </span>
-                    <span className="text-[8px] text-gray-400 font-bold uppercase tracking-wider mt-0.5">
-                      /100
-                    </span>
+                <div className="flex items-center gap-5">
+                  {/* Circular SVG Gauge */}
+                  <div className="relative w-24 h-24 shrink-0 flex items-center justify-center">
+                    <svg className="w-full h-full transform -rotate-90">
+                      <circle
+                        cx="48"
+                        cy="48"
+                        r="40"
+                        stroke="#f1f5f9"
+                        strokeWidth="8"
+                        fill="transparent"
+                      />
+                      <circle
+                        cx="48"
+                        cy="48"
+                        r="40"
+                        stroke="url(#healthGradient)"
+                        strokeWidth="8"
+                        fill="transparent"
+                        strokeDasharray={2 * Math.PI * 40}
+                        strokeDashoffset={2 * Math.PI * 40 - (2 * Math.PI * 40 * animatedScore) / 100}
+                        strokeLinecap="round"
+                        className="transition-all duration-350 ease-out"
+                      />
+                      <defs>
+                        <linearGradient id="healthGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                          <stop offset="0%" stopColor={dbTheme.chartRevenue} />
+                          <stop offset="100%" stopColor={dbTheme.chartRevenue} stopOpacity={0.8} />
+                        </linearGradient>
+                      </defs>
+                    </svg>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                      <span className="text-lg font-bold text-gray-900 font-mono leading-none">
+                        {animatedScore}
+                      </span>
+                      <span className="text-[8px] text-gray-400 font-bold uppercase tracking-wider mt-0.5">
+                        /100
+                      </span>
+                    </div>
                   </div>
-                </div>
 
-                {/* Status categories */}
-                <div className="flex-1 space-y-1.5 text-[11px] font-semibold text-gray-700">
-                  <div className="flex items-center justify-between border-b border-gray-100 pb-1">
-                    <span className="text-gray-500 font-medium">Finance</span>
-                    <span>{getStatusIcon(financeScore)}</span>
-                  </div>
-                  <div className="flex items-center justify-between border-b border-gray-100 pb-1">
-                    <span className="text-gray-500 font-medium">Inventory</span>
-                    <span>{getStatusIcon(inventoryScore)}</span>
-                  </div>
-                  <div className="flex items-center justify-between border-b border-gray-100 pb-1">
-                    <span className="text-gray-500 font-medium">Sales</span>
-                    <span>{getStatusIcon(salesScore)}</span>
-                  </div>
-                  <div className="flex items-center justify-between border-b border-gray-100 pb-1">
-                    <span className="text-gray-500 font-medium">Workforce</span>
-                    <span>{getStatusIcon(workforceScore)}</span>
+                  {/* Status categories */}
+                  <div className="flex-1 space-y-1.5 text-[11px] font-semibold text-gray-700">
+                    <div className="flex items-center justify-between border-b border-gray-100 pb-1">
+                      <span className="text-gray-550 font-medium">Finance</span>
+                      <span>{getStatusIcon(financeScore)}</span>
+                    </div>
+                    <div className="flex items-center justify-between border-b border-gray-100 pb-1">
+                      <span className="text-gray-550 font-medium">Inventory</span>
+                      <span>{getStatusIcon(inventoryScore)}</span>
+                    </div>
+                    <div className="flex items-center justify-between border-b border-gray-100 pb-1">
+                      <span className="text-gray-555 font-medium">Sales</span>
+                      <span>{getStatusIcon(salesScore)}</span>
+                    </div>
+                    <div className="flex items-center justify-between border-b border-gray-100 pb-1">
+                      <span className="text-gray-550 font-medium">Workforce</span>
+                      <span>{getStatusIcon(workforceScore)}</span>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            <div className="mt-3.5 pt-3 border-t border-gray-100 flex items-center justify-between">
-              <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Overall Rating</span>
-              <span className={`text-xs font-bold ${healthLabel.color} tracking-wide`}>
-                {healthLabel.text}
-              </span>
-            </div>
-          </motion.div>
+              <div className="mt-3.5 pt-3 border-t border-gray-100 flex items-center justify-between">
+                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Overall Rating</span>
+                <span className={`text-xs font-bold ${healthLabel.color} tracking-wide`}>
+                  {healthLabel.text}
+                </span>
+              </div>
+            </motion.div>
+
+            {/* Audit Trail Card */}
+            <motion.div {...getCardAnimation(6.5)} className="bg-white border border-gray-200 p-5 rounded-lg relative overflow-hidden flex flex-col justify-between flex-1 group hover:border-gray-300 transition-all duration-200 shadow-sm">
+              <div>
+                <span className="text-[10px] uppercase font-bold text-gray-405 tracking-wider flex items-center gap-1.5 mb-3">
+                  <Activity className="w-3.5 h-3.5 text-teal-650 animate-pulse" />
+                  Recent Operations Audit
+                </span>
+                
+                <div className="space-y-3 max-h-[120px] overflow-y-auto pr-1">
+                  {(() => {
+                    const auditLogs = JSON.parse(localStorage.getItem("bizpilot_audit_trail") || "[]");
+                    if (auditLogs.length === 0) {
+                      return (
+                        <p className="text-[10px] text-gray-400 font-mono text-center py-6">
+                          No recent operations activity.
+                        </p>
+                      );
+                    }
+                    return auditLogs.slice(0, 5).map((log, idx) => (
+                      <div className="flex gap-2 items-start text-[10px] font-mono border-b border-gray-100 pb-2 last:border-0" key={idx}>
+                        <span className="text-gray-400 shrink-0 mt-0.5">{log.time}</span>
+                        <div className="space-y-0.5">
+                          <span className={`font-bold block uppercase tracking-wider text-[8px] ${
+                            log.type.toLowerCase().includes("received") ? "text-emerald-700" :
+                            log.type.toLowerCase().includes("initiated") ? "text-amber-700" : "text-teal-700"
+                          }`}>
+                            {log.type}
+                          </span>
+                          <span className="text-gray-700 block leading-normal">{log.message}</span>
+                        </div>
+                      </div>
+                    ));
+                  })()}
+                </div>
+              </div>
+            </motion.div>
+          </div>
         </div>
       </div>
 
@@ -1665,10 +1985,10 @@ Restock ${lowStockProducts.length > 0 ? `200 units of ${lowStockProducts[0].name
                       <p className="text-[10px] text-gray-550 mt-1">Available: <span className="text-red-700 font-bold"><CountUpNumber targetValue={p.quantity} /></span> / safety threshold: {p.minStock}</p>
                     </div>
                     <button
-                      onClick={() => navigate("/inventory")}
+                      onClick={() => handleRequestRestock(p, 100)}
                       className={`px-2.5 py-1.5 ${dbTheme.reorderBtn} text-[10px] font-bold rounded-lg border transition-all shrink-0 cursor-pointer`}
                     >
-                      Manage Stock
+                      Request Restock
                     </button>
                   </div>) : <div className="text-center py-8">
                   <Package className="w-8 h-8 text-gray-300 mx-auto mb-2" />
@@ -2204,6 +2524,82 @@ Restock ${lowStockProducts.length > 0 ? `200 units of ${lowStockProducts[0].name
           </div>
         </div>
       )}
+
+      {/* Restock Confirmation Modal */}
+      {restockModalOpen && selectedRestockProduct && (() => {
+        const supplierInfo = getSupplierDetails(selectedRestockProduct.supplier);
+        return (
+          <div className="fixed inset-0 z-[100] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white border border-gray-200 w-full max-w-md rounded-2xl overflow-hidden shadow-2xl relative p-6 space-y-4">
+              <div className="absolute top-0 left-10 right-10 h-[1px] bg-gradient-to-r from-transparent via-teal-700 to-transparent" />
+              
+              <div className="flex justify-between items-start">
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-teal-750 tracking-wider font-mono">Procurement Draft</span>
+                  <h3 className="font-display font-bold text-base text-gray-900 mt-0.5">Restock Request Confirmation</h3>
+                </div>
+                <button
+                  onClick={() => {
+                    setRestockModalOpen(false);
+                    setSelectedRestockProduct(null);
+                  }}
+                  className="text-gray-400 hover:text-gray-600 transition-colors font-semibold text-sm cursor-pointer"
+                >
+                  Cancel
+                </button>
+              </div>
+
+              <div className="bg-gray-50 border border-gray-150 p-4 rounded-xl space-y-2 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-gray-500 font-medium">Product:</span>
+                  <span className="text-gray-900 font-bold">{selectedRestockProduct.name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-550 font-medium">Recommended Qty:</span>
+                  <span className="text-teal-700 font-bold font-mono">{recommendedQty} Units</span>
+                </div>
+                <div className="flex justify-between border-t border-gray-250/50 pt-2 mt-2">
+                  <span className="text-gray-500 font-medium">Dealer Name:</span>
+                  <span className="text-gray-900 font-semibold">{supplierInfo.name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-550 font-medium">Dealer Email:</span>
+                  <span className="text-gray-800 font-mono">{supplierInfo.email}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-550 font-medium">Dealer Phone:</span>
+                  <span className="text-gray-800 font-mono">{supplierInfo.phone}</span>
+                </div>
+              </div>
+
+              {/* AI Explainer Segment */}
+              <div className="bg-teal-50/50 border border-teal-150 p-3.5 rounded-xl text-left mt-3">
+                <span className="text-[9px] font-bold text-teal-800 uppercase tracking-widest font-mono block">Why this action?</span>
+                <p className="text-xs text-teal-900 mt-1 leading-normal font-sans">
+                  Current stock ({selectedRestockProduct.quantity || selectedRestockProduct.currentStock || 0} units) is below the safety threshold of {selectedRestockProduct.minStock || 5} units. BizPilot recommends replenishing {recommendedQty} units to reduce stock-out risk.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 pt-2">
+                <button
+                  onClick={handleDraftEmail}
+                  className="w-full bg-gradient-to-tr from-teal-750 to-emerald-600 hover:from-teal-800 hover:to-emerald-700 text-white font-bold py-2.5 rounded-lg transition-all text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+                >
+                  <Mail className="w-3.5 h-3.5" />
+                  <span>Draft Email</span>
+                </button>
+                <button
+                  onClick={handleDraftWhatsApp}
+                  className="w-full bg-white hover:bg-gray-50 border border-gray-250 text-gray-700 font-bold py-2.5 rounded-lg transition-all text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+                >
+                  <MessageSquare className="w-3.5 h-3.5 text-green-600" />
+                  <span>Draft WhatsApp</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Toast alert popup */}
       {toastMessage && (

@@ -18,13 +18,12 @@ import {
   ArrowDownRight,
   Layers,
   Sparkles,
-  MessageSquare,
-  X
+  MessageSquare
 } from "lucide-react";
 import { formatAmount } from "../types";
 
 const today = new Date().toISOString().slice(0, 10);
-const inputClass = "w-full rounded-xl border border-gray-250 bg-gray-50/70 px-3 py-2 text-sm text-gray-900 outline-none focus:border-emerald-400 font-mono transition-all";
+const inputClass = "w-full rounded-xl border border-slate-700 bg-slate-950/70 px-3 py-2 text-sm text-slate-100 outline-none focus:border-emerald-400 font-mono transition-all";
 const newDraft = () => ({ 
   vendor: "", 
   date: today, 
@@ -63,78 +62,6 @@ export default function OperationsDashboard({ view, user, crtEnabled }) {
   // Date filter for invoice history
   const [invoiceDateFilter, setInvoiceDateFilter] = useState("");
 
-  // Workforce & Wages states
-  const [showAddWorkerModal, setShowAddWorkerModal] = useState(false);
-  const [newWorkerName, setNewWorkerName] = useState("");
-  const [newWorkerRole, setNewWorkerRole] = useState("");
-  const [newWorkerWage, setNewWorkerWage] = useState("");
-  const [newWorkerPhone, setNewWorkerPhone] = useState("");
-  const [isSavingWorker, setIsSavingWorker] = useState(false);
-  const [isSavingAttendance, setIsSavingAttendance] = useState(false);
-  const [toastMessage, setToastMessage] = useState(null);
-
-  const triggerToast = (message) => {
-    setToastMessage(message);
-    setTimeout(() => {
-      setToastMessage(null);
-    }, 4500);
-  };
-
-  const loadLocalData = (backendWorkers = []) => {
-    let localWorkers = localStorage.getItem("bizpilot_local_workers");
-    let localAttendance = localStorage.getItem("bizpilot_local_attendance");
-    
-    if (!localWorkers) {
-      const baseline = backendWorkers.length > 0 ? backendWorkers : [
-        { id: "w1", name: "Ravi Kumar", role: "Solar Technician", daily_wage_rate: 1200.0 },
-        { id: "w2", name: "Priya Sharma", role: "Junior Installer", hourly_rate: 150.0 },
-        { id: "w3", name: "Amit Patel", role: "Warehouse Handler", daily_wage_rate: 1000.0 },
-        { id: "w4", name: "Vikram Singh", role: "Safety Supervisor", hourly_rate: 200.0 }
-      ];
-      localStorage.setItem("bizpilot_local_workers", JSON.stringify(baseline));
-      localWorkers = JSON.stringify(baseline);
-    }
-    
-    if (!localAttendance) {
-      const defaultAttendance = [
-        { id: "att_att0", worker_id: "w1", date: "2026-07-01", status: "present", hours_worked: 8.0 },
-        { id: "att_att1", worker_id: "w1", date: "2026-07-02", status: "present", hours_worked: 8.0 },
-        { id: "att_att2", worker_id: "w2", date: "2026-07-01", status: "present", hours_worked: 8.0 },
-        { id: "att_att3", worker_id: "w3", date: "2026-07-01", status: "present", hours_worked: 8.0 },
-        { id: "att_att4", worker_id: "w4", date: "2026-07-01", status: "present", hours_worked: 8.0 }
-      ];
-      localStorage.setItem("bizpilot_local_attendance", JSON.stringify(defaultAttendance));
-      localAttendance = JSON.stringify(defaultAttendance);
-    }
-    
-    return {
-      workers: JSON.parse(localWorkers),
-      attendance: JSON.parse(localAttendance)
-    };
-  };
-
-  const computeWagesSummary = (workers, attendanceLogs) => {
-    return workers.map(w => {
-      const workerLogs = attendanceLogs.filter(log => log.worker_id === w.id);
-      const daysPresent = workerLogs.filter(log => log.status === "present").length;
-      const totalHours = workerLogs.reduce((sum, log) => sum + Number(log.hours_worked || 0), 0);
-      
-      const wagesDue = w.hourly_rate 
-        ? totalHours * w.hourly_rate 
-        : daysPresent * (w.daily_wage_rate || 0);
-        
-      return {
-        id: w.id,
-        name: w.name,
-        role: w.role,
-        daysPresent,
-        totalHours,
-        wagesDue,
-        unpaidWages: 0
-      };
-    });
-  };
-
 
 
   const currency = user?.currency || "INR";
@@ -155,34 +82,23 @@ export default function OperationsDashboard({ view, user, crtEnabled }) {
       const r = await fetch("/api/operations"); 
       if (r.ok) {
         const json = await r.json();
-        const synced = loadLocalData(json.workers);
-        setData({
-          ...json,
-          workers: synced.workers,
-          attendance: synced.attendance
-        });
+        setData(json);
       }
     } catch (err) {
       console.error("Error fetching operations data:", err);
-      const synced = loadLocalData();
-      setData(prev => ({
-        ...prev,
-        workers: synced.workers,
-        attendance: synced.attendance
-      }));
     }
   };
 
   // Load staff wages summary
-  const loadWages = () => {
-    const synced = loadLocalData();
-    const computedSummary = computeWagesSummary(synced.workers, synced.attendance);
-    setSummary(computedSummary);
-    setData(prev => ({
-      ...prev,
-      workers: synced.workers,
-      attendance: synced.attendance
-    }));
+  const loadWages = async () => {
+    try {
+      const r = await fetch("/api/attendance/summary?period=month");
+      if (r.ok) {
+        setSummary(await r.json());
+      }
+    } catch (err) {
+      console.error("Error fetching wages summary:", err);
+    }
   };
 
   // Load daily sales report
@@ -364,89 +280,24 @@ export default function OperationsDashboard({ view, user, crtEnabled }) {
   };
 
   // Attendance log saving
-  const saveAttendance = (e) => { 
+  const saveAttendance = async (e) => { 
     e.preventDefault(); 
-    if (!attendance.workerId) {
-      triggerToast("Select a worker.");
-      return;
+    if (!attendance.workerId) return setNotice("Select a worker.");
+    
+    try {
+      const r = await fetch("/api/attendance", { 
+        method: "POST", 
+        headers: { "Content-Type": "application/json" }, 
+        body: JSON.stringify(attendance) 
+      }); 
+      if (r.ok) {
+        setNotice(`Attendance marked for ${attendance.date}.`); 
+        load();
+        loadWages();
+      }
+    } catch (err) {
+      console.error(err);
     }
-    
-    const localData = loadLocalData();
-    
-    // Prevent duplicate attendance
-    const isDuplicate = localData.attendance.some(
-      log => log.worker_id === attendance.workerId && log.date === attendance.date
-    );
-    
-    if (isDuplicate) {
-      triggerToast("Attendance already recorded for this date.");
-      return;
-    }
-    
-    setIsSavingAttendance(true);
-    
-    setTimeout(() => {
-      // Save attendance record
-      const newLog = {
-        id: `att_${attendance.workerId}_${Date.now()}`,
-        worker_id: attendance.workerId,
-        date: attendance.date,
-        status: attendance.status,
-        hours_worked: attendance.status === "absent" ? 0 : Number(attendance.hoursWorked)
-      };
-      
-      const updatedAttendance = [...localData.attendance, newLog];
-      localStorage.setItem("bizpilot_local_attendance", JSON.stringify(updatedAttendance));
-      
-      setAttendance({
-        ...attendance,
-        workerId: "",
-        status: "present",
-        hoursWorked: 8
-      });
-      
-      setIsSavingAttendance(false);
-      loadWages();
-      triggerToast("Attendance saved successfully.");
-    }, 600); // 600ms loading effect
-  };
-
-  // Add Worker handler
-  const handleAddWorker = (e) => {
-    e.preventDefault();
-    if (!newWorkerName || !newWorkerRole || !newWorkerWage) {
-      triggerToast("Please fill in all required fields.");
-      return;
-    }
-    
-    setIsSavingWorker(true);
-    
-    setTimeout(() => {
-      const localData = loadLocalData();
-      
-      const newWorker = {
-        id: `w_${Date.now()}`,
-        name: newWorkerName.trim(),
-        role: newWorkerRole.trim(),
-        daily_wage_rate: Number(newWorkerWage),
-        phone: newWorkerPhone.trim() || undefined
-      };
-      
-      const updatedWorkers = [...localData.workers, newWorker];
-      localStorage.setItem("bizpilot_local_workers", JSON.stringify(updatedWorkers));
-      
-      // Clear form inputs
-      setNewWorkerName("");
-      setNewWorkerRole("");
-      setNewWorkerWage("");
-      setNewWorkerPhone("");
-      setIsSavingWorker(false);
-      setShowAddWorkerModal(false);
-      
-      // Refresh table and dropdown
-      loadWages();
-      triggerToast(`Worker ${newWorker.name} added successfully.`);
-    }, 800); // 800ms visual loading state
   };
 
   // derived properties for low stock warning
@@ -498,8 +349,8 @@ export default function OperationsDashboard({ view, user, crtEnabled }) {
 
   // Card component supporting CRT retro look
   const Card = ({ children, className = "" }) => (
-    <section className={`rounded-2xl border bg-gray-100/80 p-5 shadow-xl transition-all duration-300 ${
-      crtEnabled ? `${borderPhosphorClass} border-dashed` : "border-gray-200 bg-white backdrop-blur-xl"
+    <section className={`rounded-2xl border bg-slate-950/80 p-5 shadow-xl transition-all duration-300 ${
+      crtEnabled ? `${borderPhosphorClass} border-dashed` : "border-slate-800 bg-slate-900/60 backdrop-blur-xl"
     } ${className}`}>
       {children}
     </section>
@@ -508,13 +359,13 @@ export default function OperationsDashboard({ view, user, crtEnabled }) {
   const Header = ({ title, text }) => (
     <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
       <div>
-        <p className={`text-xs font-bold uppercase tracking-[.25em] ${crtEnabled ? phosphorClass : "text-teal-700"}`}>
+        <p className={`text-xs font-bold uppercase tracking-[.25em] ${crtEnabled ? phosphorClass : "text-emerald-400"}`}>
           BizPilot AI Operations Center · {user?.businessType || "Renewables Platform"}
         </p>
-        <h1 className={`mt-2 text-3xl font-extrabold text-gray-900 tracking-tight ${crtEnabled ? `${phosphorClass} font-mono` : ""}`}>
+        <h1 className={`mt-2 text-3xl font-extrabold text-white tracking-tight ${crtEnabled ? `${phosphorClass} font-mono` : ""}`}>
           {title}
         </h1>
-        <p className="mt-2 text-sm text-gray-500 max-w-2xl">{text}</p>
+        <p className="mt-2 text-sm text-slate-400 max-w-2xl">{text}</p>
       </div>
     </div>
   );
@@ -544,21 +395,21 @@ export default function OperationsDashboard({ view, user, crtEnabled }) {
           <div className="grid gap-6 xl:grid-cols-[1.3fr_.7fr]">
             <Card>
               <form onSubmit={confirm} className="space-y-5">
-                <h2 className={`flex items-center gap-2 font-semibold text-lg ${crtEnabled ? `${phosphorClass} font-mono` : "text-gray-900"}`}>
-                  <ReceiptText className={crtEnabled ? phosphorClass : "text-teal-700"} />
+                <h2 className={`flex items-center gap-2 font-semibold text-lg ${crtEnabled ? `${phosphorClass} font-mono` : "text-white"}`}>
+                  <ReceiptText className={crtEnabled ? phosphorClass : "text-emerald-400"} />
                   Process New Bill Document
                 </h2>
 
                 {/* File Drop and Clipboard Paste Area */}
                 <label className={`flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed p-8 text-center cursor-pointer transition-all ${
                   crtEnabled 
-                    ? "border-emerald-500/40 bg-gray-50 hover:bg-emerald-950/20" 
-                    : "border-gray-200 bg-gray-50/30 hover:border-emerald-500/30 hover:bg-gray-50/20"
+                    ? "border-emerald-500/40 bg-slate-950/50 hover:bg-emerald-950/20" 
+                    : "border-slate-800 bg-slate-950/30 hover:border-emerald-500/30 hover:bg-slate-900/20"
                 }`}>
-                  <FileUp className={`w-8 h-8 ${crtEnabled ? phosphorClass : "text-teal-700"} animate-bounce`} />
+                  <FileUp className={`w-8 h-8 ${crtEnabled ? phosphorClass : "text-emerald-400"} animate-bounce`} />
                   <div>
-                    <span className="text-sm font-semibold block text-gray-900">Drag receipt photo here or click to browse</span>
-                    <span className="text-xs text-gray-500 mt-1 block font-mono">PRO TIP: Paste image directly from clipboard (Ctrl+V)</span>
+                    <span className="text-sm font-semibold block text-slate-200">Drag receipt photo here or click to browse</span>
+                    <span className="text-xs text-slate-400 mt-1 block font-mono">PRO TIP: Paste image directly from clipboard (Ctrl+V)</span>
                   </div>
                   <input 
                     className="hidden" 
@@ -571,7 +422,7 @@ export default function OperationsDashboard({ view, user, crtEnabled }) {
                 {/* Form fields */}
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-1">
-                    <label className="text-xs text-gray-500 font-mono">TRANSACTION CLASSIFICATION</label>
+                    <label className="text-xs text-slate-400 font-mono">TRANSACTION CLASSIFICATION</label>
                     <select 
                       className={inputClass} 
                       value={draft.billType} 
@@ -587,7 +438,7 @@ export default function OperationsDashboard({ view, user, crtEnabled }) {
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-xs text-gray-500 font-mono">BILL DATE</label>
+                    <label className="text-xs text-slate-400 font-mono">BILL DATE</label>
                     <input 
                       className={inputClass} 
                       type="date" 
@@ -597,7 +448,7 @@ export default function OperationsDashboard({ view, user, crtEnabled }) {
                   </div>
 
                   <div className="space-y-1 sm:col-span-2">
-                    <label className="text-xs text-gray-500 font-mono">
+                    <label className="text-xs text-slate-400 font-mono">
                       {draft.billType === "sale" ? "CUSTOMER NAME" : "VENDOR / PROVIDER"}
                     </label>
                     <input 
@@ -611,7 +462,7 @@ export default function OperationsDashboard({ view, user, crtEnabled }) {
 
                   {draft.billType === "wages" && (
                     <div className="space-y-1 sm:col-span-2">
-                      <label className="text-xs text-gray-500 font-mono">LINK WORKER FOR PAYROLL</label>
+                      <label className="text-xs text-slate-400 font-mono">LINK WORKER FOR PAYROLL</label>
                       <select 
                         required 
                         className={inputClass} 
@@ -628,7 +479,7 @@ export default function OperationsDashboard({ view, user, crtEnabled }) {
 
                   {draft.billType !== "wages" && (
                     <div className="space-y-1 sm:col-span-2">
-                      <label className="text-xs text-gray-500 font-mono">MEMO / NOTES</label>
+                      <label className="text-xs text-slate-400 font-mono">MEMO / NOTES</label>
                       <input 
                         className={inputClass} 
                         placeholder="Internal description (e.g. project name, batch code)" 
@@ -641,7 +492,7 @@ export default function OperationsDashboard({ view, user, crtEnabled }) {
 
                 {/* Line Items Grid */}
                 <div className="space-y-3">
-                  <span className="text-xs font-bold text-gray-500 tracking-wider font-mono block uppercase">Extracted Line Items</span>
+                  <span className="text-xs font-bold text-slate-400 tracking-wider font-mono block uppercase">Extracted Line Items</span>
                   {draft.items.map((item, i) => (
                     <div className="grid grid-cols-[1fr_80px_110px_35px] gap-2 items-center" key={i}>
                       <input 
@@ -670,7 +521,7 @@ export default function OperationsDashboard({ view, user, crtEnabled }) {
                         type="button" 
                         onClick={() => handleRemoveLine(i)}
                         disabled={draft.items.length <= 1}
-                        className="p-2 text-rose-600 hover:bg-rose-500/10 rounded-lg hover:text-rose-200 transition-colors"
+                        className="p-2 text-rose-400 hover:bg-rose-500/10 rounded-lg hover:text-rose-200 transition-colors"
                       >
                         <Trash2 size={16} />
                       </button>
@@ -686,7 +537,7 @@ export default function OperationsDashboard({ view, user, crtEnabled }) {
                   </button>
                 </div>
 
-                <div className="rounded-xl border border-gray-200 bg-gray-50/50 p-4 text-xs space-y-1 font-mono text-gray-500">
+                <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-4 text-xs space-y-1 font-mono text-slate-400">
                   {draft.billType === "sale" && <p>⚡ Ledger Effect: Records sales revenue. Subtracts product line quantities from current inventory stock.</p>}
                   {draft.billType === "materials" && <p>⚡ Ledger Effect: Records capital procurement cost. Adds product line quantities to current inventory stock.</p>}
                   {draft.billType === "wages" && <p>⚡ Ledger Effect: Adds the payout amount directly to the selected worker's wage ledger summary.</p>}
@@ -694,9 +545,9 @@ export default function OperationsDashboard({ view, user, crtEnabled }) {
                   {draft.billType === "transport" && <p>⚡ Ledger Effect: Records as a transportation logistics fuel cost.</p>}
                 </div>
 
-                <div className="flex justify-between items-center border-t border-gray-200 pt-4 font-mono">
-                  <span className="text-gray-500 text-sm font-bold">CALCULATED TOTAL:</span>
-                  <b className={`text-xl ${crtEnabled ? phosphorClass : "text-gray-900"}`}>
+                <div className="flex justify-between items-center border-t border-slate-800 pt-4 font-mono">
+                  <span className="text-slate-400 text-sm font-bold">CALCULATED TOTAL:</span>
+                  <b className={`text-xl ${crtEnabled ? phosphorClass : "text-white"}`}>
                     {formatAmount(total, currency)}
                   </b>
                 </div>
@@ -728,38 +579,38 @@ export default function OperationsDashboard({ view, user, crtEnabled }) {
             <div className="space-y-6">
               {/* Financial effects trail */}
               <Card>
-                <h3 className={`font-semibold text-base mb-4 flex items-center gap-1.5 ${crtEnabled ? phosphorClass : "text-gray-900"}`}>
+                <h3 className={`font-semibold text-base mb-4 flex items-center gap-1.5 ${crtEnabled ? phosphorClass : "text-white"}`}>
                   <TrendingUp size={16} /> Ledger Totals
                 </h3>
-                <div className="grid grid-cols-2 gap-4 text-xs font-mono text-gray-500">
-                  <div className="border-b border-gray-200 pb-2">
-                    <span className="block text-gray-450">REVENUE</span>
-                    <b className="text-teal-700 text-sm font-semibold">
+                <div className="grid grid-cols-2 gap-4 text-xs font-mono text-slate-400">
+                  <div className="border-b border-slate-800 pb-2">
+                    <span className="block text-slate-500">REVENUE</span>
+                    <b className="text-emerald-400 text-sm font-semibold">
                       +{formatAmount(data.financialSummary.grossRevenue, currency)}
                     </b>
                   </div>
-                  <div className="border-b border-gray-200 pb-2">
-                    <span className="block text-gray-450">MATERIALS</span>
-                    <b className="text-rose-600 text-sm font-semibold">
+                  <div className="border-b border-slate-800 pb-2">
+                    <span className="block text-slate-500">MATERIALS</span>
+                    <b className="text-rose-400 text-sm font-semibold">
                       -{formatAmount(data.financialSummary.materialCost, currency)}
                     </b>
                   </div>
-                  <div className="border-b border-gray-200 pb-2">
-                    <span className="block text-gray-450">WAGES PAID</span>
-                    <b className="text-rose-600 text-sm font-semibold">
+                  <div className="border-b border-slate-800 pb-2">
+                    <span className="block text-slate-500">WAGES PAID</span>
+                    <b className="text-rose-400 text-sm font-semibold">
                       -{formatAmount(data.financialSummary.wages, currency)}
                     </b>
                   </div>
-                  <div className="border-b border-gray-200 pb-2">
-                    <span className="block text-gray-450">OTHER LOGS</span>
-                    <b className="text-rose-600 text-sm font-semibold">
+                  <div className="border-b border-slate-800 pb-2">
+                    <span className="block text-slate-500">OTHER LOGS</span>
+                    <b className="text-rose-400 text-sm font-semibold">
                       -{formatAmount(data.financialSummary.medical + data.financialSummary.transport, currency)}
                     </b>
                   </div>
                   <div className="col-span-2 pt-2">
-                    <span className="block text-gray-450">NET OPERATIONS CAPITAL</span>
+                    <span className="block text-slate-500">NET OPERATIONS CAPITAL</span>
                     <b className={`text-base font-bold ${
-                      data.financialSummary.netRevenue >= 0 ? "text-emerald-300" : "text-rose-600"
+                      data.financialSummary.netRevenue >= 0 ? "text-emerald-300" : "text-rose-400"
                     }`}>
                       {formatAmount(data.financialSummary.netRevenue, currency)}
                     </b>
@@ -770,12 +621,12 @@ export default function OperationsDashboard({ view, user, crtEnabled }) {
               {/* Historic Invoice Documents */}
               <Card>
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className={`font-semibold text-base ${crtEnabled ? phosphorClass : "text-gray-900"}`}>
+                  <h3 className={`font-semibold text-base ${crtEnabled ? phosphorClass : "text-white"}`}>
                     Invoice Archive
                   </h3>
                   <input 
                     type="date"
-                    className="rounded-lg bg-gray-100 border border-gray-250 px-2 py-1 text-xs text-gray-800 font-mono outline-none"
+                    className="rounded-lg bg-slate-900 border border-slate-700 px-2 py-1 text-xs text-slate-300 font-mono outline-none"
                     value={invoiceDateFilter}
                     onChange={e => setInvoiceDateFilter(e.target.value)}
                   />
@@ -784,14 +635,14 @@ export default function OperationsDashboard({ view, user, crtEnabled }) {
                 <div className="space-y-3 max-h-[350px] overflow-y-auto pr-1">
                   {filteredInvoices.length > 0 ? (
                     filteredInvoices.map((b) => (
-                      <div className="rounded-xl bg-gray-150 border border-gray-200 p-3 flex flex-col gap-2" key={b.id}>
+                      <div className="rounded-xl bg-slate-950/60 border border-slate-800 p-3 flex flex-col gap-2" key={b.id}>
                         <div className="flex justify-between text-xs font-mono font-bold">
-                          <span className="text-gray-900 capitalize">{b.billType} · {b.vendor}</span>
-                          <span className={crtEnabled ? phosphorClass : "text-teal-700"}>
+                          <span className="text-slate-200 capitalize">{b.billType} · {b.vendor}</span>
+                          <span className={crtEnabled ? phosphorClass : "text-emerald-400"}>
                             {formatAmount(b.total, currency)}
                           </span>
                         </div>
-                        <div className="flex justify-between items-center text-[10px] font-mono text-gray-500">
+                        <div className="flex justify-between items-center text-[10px] font-mono text-slate-400">
                           <span>{b.date}</span>
                           
                           {/* Invoice PDF Link */}
@@ -799,7 +650,7 @@ export default function OperationsDashboard({ view, user, crtEnabled }) {
                             href={`/static/invoices/invoice_${b.id}.pdf`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex items-center gap-1 text-teal-700 hover:text-emerald-200 font-bold"
+                            className="flex items-center gap-1 text-emerald-400 hover:text-emerald-200 font-bold"
                           >
                             <FileDown size={12} /> PDF INVOICE
                           </a>
@@ -807,7 +658,7 @@ export default function OperationsDashboard({ view, user, crtEnabled }) {
                       </div>
                     ))
                   ) : (
-                    <p className="text-xs text-gray-450 font-mono text-center py-4">No confirmed invoices matched date filter.</p>
+                    <p className="text-xs text-slate-500 font-mono text-center py-4">No confirmed invoices matched date filter.</p>
                   )}
                 </div>
               </Card>
@@ -826,13 +677,13 @@ export default function OperationsDashboard({ view, user, crtEnabled }) {
 
           <div className="grid gap-6 xl:grid-cols-[1.3fr_.7fr]">
             <Card>
-              <h2 className={`font-semibold text-lg mb-4 ${crtEnabled ? phosphorClass : "text-gray-900"}`}>
+              <h2 className={`font-semibold text-lg mb-4 ${crtEnabled ? phosphorClass : "text-white"}`}>
                 Product Stock Levels
               </h2>
               
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm font-mono">
-                  <thead className="text-gray-500 border-b border-gray-200">
+                  <thead className="text-slate-400 border-b border-slate-800">
                     <tr>
                       <th className="py-2.5">PRODUCT NAME</th>
                       <th className="py-2.5 text-center">CURRENT STOCK</th>
@@ -847,10 +698,10 @@ export default function OperationsDashboard({ view, user, crtEnabled }) {
                       const isLow = p.currentStock < p.reorderThreshold;
                       
                       return (
-                        <tr className="border-t border-gray-200 hover:bg-gray-50/10" key={p.id}>
+                        <tr className="border-t border-slate-800/80 hover:bg-slate-900/10" key={p.id}>
                           <td className="py-3.5 pr-2 font-medium">
-                            <span className="block text-gray-900">{p.name}</span>
-                            <span className="text-[10px] text-gray-450 uppercase">{p.category}</span>
+                            <span className="block text-slate-200">{p.name}</span>
+                            <span className="text-[10px] text-slate-500 uppercase">{p.category}</span>
                           </td>
                           <td className="py-3.5 text-center">
                             <span className={`px-2 py-0.5 rounded text-xs font-bold ${
@@ -861,20 +712,20 @@ export default function OperationsDashboard({ view, user, crtEnabled }) {
                               {p.currentStock}
                             </span>
                           </td>
-                          <td className="py-3.5 text-center text-gray-500">
+                          <td className="py-3.5 text-center text-slate-400">
                             {p.reorderThreshold}
                           </td>
-                          <td className="py-3.5 text-right text-gray-800">
+                          <td className="py-3.5 text-right text-slate-300">
                             {suggest.avgSales} / day
                           </td>
                           <td className="py-3.5 text-right">
                             {isLow ? (
-                              <div className="text-rose-600 font-bold flex flex-col items-end">
+                              <div className="text-rose-400 font-bold flex flex-col items-end">
                                 <span>+{suggest.suggestedQty} units</span>
                                 <span className="text-[9px] uppercase tracking-wider text-rose-500">{suggest.timeframe}</span>
                               </div>
                             ) : (
-                              <span className="text-gray-450">—</span>
+                              <span className="text-slate-500">—</span>
                             )}
                           </td>
                         </tr>
@@ -888,12 +739,12 @@ export default function OperationsDashboard({ view, user, crtEnabled }) {
             <div className="space-y-6">
               {/* Request restock form */}
               <Card>
-                <h3 className={`font-semibold text-base mb-4 ${crtEnabled ? phosphorClass : "text-gray-900"}`}>
+                <h3 className={`font-semibold text-base mb-4 ${crtEnabled ? phosphorClass : "text-white"}`}>
                   Request Restock
                 </h3>
                 <form onSubmit={requestStock} className="space-y-3 font-mono">
                   <div className="space-y-1">
-                    <label className="text-[10px] text-gray-500">SELECT PRODUCT</label>
+                    <label className="text-[10px] text-slate-400">SELECT PRODUCT</label>
                     <select 
                       className={inputClass} 
                       required 
@@ -907,7 +758,7 @@ export default function OperationsDashboard({ view, user, crtEnabled }) {
                     </select>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] text-gray-500">QUANTITY</label>
+                    <label className="text-[10px] text-slate-400">QUANTITY</label>
                     <input 
                       className={inputClass} 
                       type="number" 
@@ -917,7 +768,7 @@ export default function OperationsDashboard({ view, user, crtEnabled }) {
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] text-gray-500">REQUEST NOTE</label>
+                    <label className="text-[10px] text-slate-400">REQUEST NOTE</label>
                     <textarea 
                       className={inputClass} 
                       placeholder="Why is this needed?" 
@@ -938,7 +789,7 @@ export default function OperationsDashboard({ view, user, crtEnabled }) {
 
               {/* Chat bubble restock notifications */}
               <Card>
-                <h3 className={`font-semibold text-base mb-4 flex items-center gap-1.5 ${crtEnabled ? phosphorClass : "text-gray-900"}`}>
+                <h3 className={`font-semibold text-base mb-4 flex items-center gap-1.5 ${crtEnabled ? phosphorClass : "text-white"}`}>
                   <MessageSquare size={16} /> Owner Inbox
                 </h3>
 
@@ -949,18 +800,18 @@ export default function OperationsDashboard({ view, user, crtEnabled }) {
                         className={`p-3.5 rounded-2xl border text-sm flex flex-col gap-2 relative transition-all ${
                           x.status === "pending" 
                             ? "bg-emerald-950/20 border-emerald-500/30" 
-                            : "bg-gray-50/50 border-gray-200"
+                            : "bg-slate-950/40 border-slate-800"
                         }`} 
                         key={x.id}
                       >
                         {/* Chat-bubble tail pointer */}
-                        <div className="absolute top-4 -left-2 w-4 h-4 bg-gray-100 border-l border-b border-gray-200 transform rotate-45" 
+                        <div className="absolute top-4 -left-2 w-4 h-4 bg-slate-900 border-l border-b border-slate-800 transform rotate-45" 
                              style={{ display: x.status === "pending" ? "none" : "block" }} />
                         
                         <div className="flex justify-between items-start">
-                          <span className="font-bold text-gray-900 text-xs font-mono block">💬 {x.requestedBy}</span>
+                          <span className="font-bold text-slate-200 text-xs font-mono block">💬 {x.requestedBy}</span>
                           <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded font-mono uppercase ${
-                            x.status === "pending" ? "bg-whitember-500/20 text-amber-300 border border-amber-500/20" :
+                            x.status === "pending" ? "bg-amber-500/20 text-amber-300 border border-amber-500/20" :
                             x.status === "approved" ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/20" :
                             x.status === "rejected" ? "bg-rose-500/20 text-rose-300 border border-rose-500/20" :
                             "bg-emerald-500/20 text-emerald-300 border border-emerald-500/20"
@@ -969,12 +820,12 @@ export default function OperationsDashboard({ view, user, crtEnabled }) {
                           </span>
                         </div>
 
-                        <p className="text-gray-800 text-xs font-mono mt-1">
-                          Requested <b className="text-gray-900 font-bold">{x.requested_qty || x.requestedQty} units</b> of {x.product_name}.
+                        <p className="text-slate-300 text-xs font-mono mt-1">
+                          Requested <b className="text-white font-bold">{x.requested_qty || x.requestedQty} units</b> of {x.product_name}.
                         </p>
                         
                         {x.note && (
-                          <p className="italic text-gray-500 text-xs font-mono bg-gray-50 p-2 rounded border border-gray-200">
+                          <p className="italic text-slate-400 text-xs font-mono bg-slate-950/50 p-2 rounded border border-slate-800/80">
                             "{x.note}"
                           </p>
                         )}
@@ -989,7 +840,7 @@ export default function OperationsDashboard({ view, user, crtEnabled }) {
                               Approve
                             </button>
                             <button 
-                              className="flex-1 rounded bg-gray-200 hover:bg-slate-700 py-1 text-xs font-bold text-gray-800 transition-colors border border-gray-250" 
+                              className="flex-1 rounded bg-slate-800 hover:bg-slate-700 py-1 text-xs font-bold text-slate-300 transition-colors border border-slate-700" 
                               onClick={() => requestAction(x.id, "reject")}
                             >
                               Reject
@@ -1008,7 +859,7 @@ export default function OperationsDashboard({ view, user, crtEnabled }) {
                       </div>
                     ))
                   ) : (
-                    <p className="text-xs text-gray-450 font-mono text-center py-4">No stock requests in inbox.</p>
+                    <p className="text-xs text-slate-500 font-mono text-center py-4">No stock requests in inbox.</p>
                   )}
                 </div>
               </Card>
@@ -1026,10 +877,10 @@ export default function OperationsDashboard({ view, user, crtEnabled }) {
           />
 
           <div className="flex items-center gap-3 font-mono">
-            <span className="text-xs text-gray-500 uppercase">AUDIT DATE:</span>
+            <span className="text-xs text-slate-400 uppercase">AUDIT DATE:</span>
             <input 
               type="date"
-              className="rounded-xl bg-gray-50 border border-gray-250 px-3 py-1.5 text-sm text-gray-900 font-mono outline-none focus:border-emerald-500"
+              className="rounded-xl bg-slate-950 border border-slate-700 px-3 py-1.5 text-sm text-slate-200 font-mono outline-none focus:border-emerald-500"
               value={reportDate}
               onChange={e => setReportDate(e.target.value)}
             />
@@ -1037,7 +888,7 @@ export default function OperationsDashboard({ view, user, crtEnabled }) {
 
           {reportLoading ? (
             <div className="flex items-center justify-center py-20">
-              <Loader2 size={32} className="animate-spin text-teal-700" />
+              <Loader2 size={32} className="animate-spin text-emerald-400" />
             </div>
           ) : (
             <div className="space-y-6">
@@ -1045,20 +896,20 @@ export default function OperationsDashboard({ view, user, crtEnabled }) {
               <div className="grid gap-4 md:grid-cols-3">
                 <Card className="flex items-center justify-between">
                   <div>
-                    <span className="text-xs text-gray-500 font-mono">DAILY REVENUE</span>
-                    <p className={`mt-2 text-3xl font-extrabold ${crtEnabled ? phosphorClass : "text-gray-900"}`}>
+                    <span className="text-xs text-slate-400 font-mono">DAILY REVENUE</span>
+                    <p className={`mt-2 text-3xl font-extrabold ${crtEnabled ? phosphorClass : "text-white"}`}>
                       {formatAmount(report.revenue || 0, currency)}
                     </p>
                   </div>
                   <div className="p-3 bg-emerald-500/10 rounded-2xl border border-emerald-500/20">
-                    <ArrowUpRight className="w-6 h-6 text-teal-700" />
+                    <ArrowUpRight className="w-6 h-6 text-emerald-400" />
                   </div>
                 </Card>
 
                 <Card className="flex items-center justify-between">
                   <div>
-                    <span className="text-xs text-gray-500 font-mono">UNITS SOLD</span>
-                    <p className={`mt-2 text-3xl font-extrabold ${crtEnabled ? phosphorClass : "text-gray-900"}`}>
+                    <span className="text-xs text-slate-400 font-mono">UNITS SOLD</span>
+                    <p className={`mt-2 text-3xl font-extrabold ${crtEnabled ? phosphorClass : "text-white"}`}>
                       {report.units_sold || 0}
                     </p>
                   </div>
@@ -1069,22 +920,22 @@ export default function OperationsDashboard({ view, user, crtEnabled }) {
 
                 <Card className="flex items-center justify-between">
                   <div>
-                    <span className="text-xs text-gray-500 font-mono">STOCK ADDED</span>
-                    <p className={`mt-2 text-3xl font-extrabold ${crtEnabled ? phosphorClass : "text-gray-900"}`}>
+                    <span className="text-xs text-slate-400 font-mono">STOCK ADDED</span>
+                    <p className={`mt-2 text-3xl font-extrabold ${crtEnabled ? phosphorClass : "text-white"}`}>
                       {report.stock_added || 0}
                     </p>
                   </div>
                   <div className="p-3 bg-indigo-500/10 rounded-2xl border border-indigo-500/20">
-                    <Layers className="w-6 h-6 text-indigo-600" />
+                    <Layers className="w-6 h-6 text-indigo-400" />
                   </div>
                 </Card>
               </div>
 
               {/* AI Advisory Summary Card */}
               <Card>
-                <div className="flex items-center justify-between mb-4 border-b border-gray-200 pb-3">
-                  <h2 className={`flex items-center gap-2 font-semibold text-lg ${crtEnabled ? phosphorClass : "text-gray-900"}`}>
-                    <Sparkles className={crtEnabled ? phosphorClass : "text-teal-700"} />
+                <div className="flex items-center justify-between mb-4 border-b border-slate-800 pb-3">
+                  <h2 className={`flex items-center gap-2 font-semibold text-lg ${crtEnabled ? phosphorClass : "text-white"}`}>
+                    <Sparkles className={crtEnabled ? phosphorClass : "text-emerald-400"} />
                     BizPilot AI Recommendation Engine
                   </h2>
                   <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-500/15 text-emerald-300 border border-emerald-500/20">
@@ -1098,17 +949,17 @@ export default function OperationsDashboard({ view, user, crtEnabled }) {
                       <div 
                         className={`p-4 rounded-xl border flex gap-3 font-mono text-xs leading-relaxed ${
                           crtEnabled 
-                            ? "bg-gray-50 border-emerald-500/30 text-emerald-300" 
-                            : "bg-gray-50/30 border-gray-200 text-gray-900"
+                            ? "bg-slate-950 border-emerald-500/30 text-emerald-300" 
+                            : "bg-slate-900/30 border-slate-800 text-slate-200"
                         }`} 
                         key={idx}
                       >
-                        <span className={`font-bold ${crtEnabled ? phosphorClass : "text-teal-700"}`}>[0{idx + 1}]</span>
+                        <span className={`font-bold ${crtEnabled ? phosphorClass : "text-emerald-400"}`}>[0{idx + 1}]</span>
                         <p>{rec}</p>
                       </div>
                     ))
                   ) : (
-                    <p className="text-xs text-gray-450 font-mono text-center py-4">No recommendations computed for this date.</p>
+                    <p className="text-xs text-slate-500 font-mono text-center py-4">No recommendations computed for this date.</p>
                   )}
                 </div>
               </Card>
@@ -1116,39 +967,39 @@ export default function OperationsDashboard({ view, user, crtEnabled }) {
               {/* Sales breakdowns */}
               <div className="grid gap-6 md:grid-cols-2">
                 <Card>
-                  <h3 className={`font-semibold text-base mb-4 ${crtEnabled ? phosphorClass : "text-gray-900"}`}>
+                  <h3 className={`font-semibold text-base mb-4 ${crtEnabled ? phosphorClass : "text-white"}`}>
                     Daily Stock Sold Breakdown
                   </h3>
-                  <div className="space-y-3 font-mono text-xs text-gray-800">
+                  <div className="space-y-3 font-mono text-xs text-slate-300">
                     {report.stock_sold_breakdown && report.stock_sold_breakdown.length > 0 ? (
                       report.stock_sold_breakdown.map((item, idx) => (
-                        <div className="flex justify-between border-b border-gray-200 pb-2" key={idx}>
+                        <div className="flex justify-between border-b border-slate-800/60 pb-2" key={idx}>
                           <span>{item.product}</span>
-                          <span className="font-bold text-gray-900">{item.qty} units</span>
+                          <span className="font-bold text-white">{item.qty} units</span>
                         </div>
                       ))
                     ) : (
-                      <p className="text-gray-450 text-center py-6">No inventory sales registered on this date.</p>
+                      <p className="text-slate-500 text-center py-6">No inventory sales registered on this date.</p>
                     )}
                   </div>
                 </Card>
 
                 <Card>
-                  <h3 className={`font-semibold text-base mb-4 ${crtEnabled ? phosphorClass : "text-gray-900"}`}>
+                  <h3 className={`font-semibold text-base mb-4 ${crtEnabled ? phosphorClass : "text-white"}`}>
                     Top Selling Products
                   </h3>
-                  <div className="space-y-3 font-mono text-xs text-gray-800">
+                  <div className="space-y-3 font-mono text-xs text-slate-300">
                     {report.top_products && report.top_products.length > 0 ? (
                       report.top_products.map((p, idx) => (
-                        <div className="flex items-center gap-3 border-b border-gray-200 pb-2" key={idx}>
-                          <span className="w-5 h-5 flex items-center justify-center rounded-full bg-emerald-500/10 text-teal-700 font-bold">
+                        <div className="flex items-center gap-3 border-b border-slate-800/60 pb-2" key={idx}>
+                          <span className="w-5 h-5 flex items-center justify-center rounded-full bg-emerald-500/10 text-emerald-400 font-bold">
                             {idx + 1}
                           </span>
                           <span>{p}</span>
                         </div>
                       ))
                     ) : (
-                      <p className="text-gray-450 text-center py-6">No top sellers identified.</p>
+                      <p className="text-slate-500 text-center py-6">No top sellers identified.</p>
                     )}
                   </div>
                 </Card>
@@ -1168,24 +1019,14 @@ export default function OperationsDashboard({ view, user, crtEnabled }) {
 
           <div className="grid gap-6 lg:grid-cols-[0.8fr_1.2fr]">
             <Card>
-              <div className="flex items-center justify-between mb-4">
-                <h2 className={`font-semibold text-lg flex items-center gap-1.5 ${crtEnabled ? phosphorClass : "text-gray-900"}`}>
-                  <ClipboardCheck className={crtEnabled ? phosphorClass : "text-teal-700"} />
-                  Mark Worker Attendance
-                </h2>
-                <button
-                  type="button"
-                  onClick={() => setShowAddWorkerModal(true)}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-3.5 py-1.5 rounded-lg shadow-sm cursor-pointer flex items-center gap-1 transition-colors"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Add Worker</span>
-                </button>
-              </div>
+              <h2 className={`font-semibold text-lg mb-4 flex items-center gap-1.5 ${crtEnabled ? phosphorClass : "text-white"}`}>
+                <ClipboardCheck className={crtEnabled ? phosphorClass : "text-emerald-400"} />
+                Mark Worker Attendance
+              </h2>
 
               <form onSubmit={saveAttendance} className="space-y-4 font-mono">
                 <div className="space-y-1">
-                  <label className="text-xs text-gray-500">CHOOSE WORKER</label>
+                  <label className="text-xs text-slate-400">CHOOSE WORKER</label>
                   <select 
                     className={inputClass} 
                     required 
@@ -1200,7 +1041,7 @@ export default function OperationsDashboard({ view, user, crtEnabled }) {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-xs text-gray-500">DATE</label>
+                  <label className="text-xs text-slate-400">DATE</label>
                   <input 
                     className={inputClass} 
                     type="date" 
@@ -1211,7 +1052,7 @@ export default function OperationsDashboard({ view, user, crtEnabled }) {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-xs text-gray-500">STATUS</label>
+                    <label className="text-xs text-slate-400">STATUS</label>
                     <select 
                       className={inputClass} 
                       value={attendance.status} 
@@ -1223,7 +1064,7 @@ export default function OperationsDashboard({ view, user, crtEnabled }) {
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-xs text-gray-500">HOURS WORKED</label>
+                    <label className="text-xs text-slate-400">HOURS WORKED</label>
                     <input 
                       className={inputClass} 
                       type="number" 
@@ -1237,36 +1078,25 @@ export default function OperationsDashboard({ view, user, crtEnabled }) {
                   </div>
                 </div>
 
-                <button 
-                  type="submit"
-                  disabled={isSavingAttendance}
-                  className={`w-full flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-bold uppercase transition-all cursor-pointer ${
-                    crtEnabled 
-                      ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500 hover:bg-emerald-500/30" 
-                      : "bg-emerald-500 text-slate-950 hover:bg-emerald-400 disabled:opacity-50"
-                  }`}
-                >
-                  {isSavingAttendance ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      <span>Saving Log...</span>
-                    </>
-                  ) : (
-                    <span>Save Attendance Log</span>
-                  )}
+                <button className={`w-full flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-bold uppercase transition-all ${
+                  crtEnabled 
+                    ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500 hover:bg-emerald-500/30" 
+                    : "bg-emerald-500 text-slate-950 hover:bg-emerald-400"
+                }`}>
+                  Save Attendance Log
                 </button>
               </form>
             </Card>
 
             <Card>
-              <h2 className={`font-semibold text-lg mb-4 flex items-center gap-1.5 ${crtEnabled ? phosphorClass : "text-gray-900"}`}>
-                <UsersRound className={crtEnabled ? phosphorClass : "text-teal-700"} />
+              <h2 className={`font-semibold text-lg mb-4 flex items-center gap-1.5 ${crtEnabled ? phosphorClass : "text-white"}`}>
+                <UsersRound className={crtEnabled ? phosphorClass : "text-emerald-400"} />
                 Monthly Wages Summary
               </h2>
 
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm font-mono">
-                  <thead className="text-gray-500 border-b border-gray-200">
+                  <thead className="text-slate-400 border-b border-slate-800">
                     <tr>
                       <th className="py-2.5">PERSON</th>
                       <th className="py-2.5 text-center">DAYS PRESENT</th>
@@ -1276,15 +1106,15 @@ export default function OperationsDashboard({ view, user, crtEnabled }) {
                   </thead>
                   <tbody>
                     {summary.map(w => (
-                      <tr className="border-t border-gray-200 hover:bg-gray-50/10" key={w.id}>
+                      <tr className="border-t border-slate-800/80 hover:bg-slate-900/10" key={w.id}>
                         <td className="py-3.5 pr-2 font-medium">
-                          <span className="block text-gray-900">{w.name}</span>
-                          <span className="text-[10px] text-gray-450 uppercase">{w.role}</span>
+                          <span className="block text-slate-200">{w.name}</span>
+                          <span className="text-[10px] text-slate-500 uppercase">{w.role}</span>
                         </td>
-                        <td className="py-3.5 text-center text-gray-800">
+                        <td className="py-3.5 text-center text-slate-300">
                           {w.daysPresent}
                         </td>
-                        <td className="py-3.5 text-center text-gray-800">
+                        <td className="py-3.5 text-center text-slate-300">
                           {w.totalHours} h
                         </td>
                         <td className={`py-3.5 text-right font-bold ${crtEnabled ? phosphorClass : "text-emerald-300"}`}>
@@ -1296,115 +1126,6 @@ export default function OperationsDashboard({ view, user, crtEnabled }) {
                 </table>
               </div>
             </Card>
-          </div>
-        </div>
-      )}
-      {/* Add Worker Modal */}
-      {showAddWorkerModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-fade-in">
-          <div className="bg-white border border-gray-200 w-full max-w-sm rounded-2xl shadow-2xl relative p-6 text-left">
-            <div className="flex items-center justify-between border-b border-gray-150 pb-3 mb-5">
-              <h3 className="font-display font-bold text-base text-gray-900">Add New Worker</h3>
-              <button 
-                type="button" 
-                onClick={() => setShowAddWorkerModal(false)} 
-                className="text-gray-400 hover:text-gray-700 cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleAddWorker} className="space-y-4 font-sans text-xs">
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold uppercase text-gray-500">Full Name</label>
-                <input
-                  type="text"
-                  required
-                  value={newWorkerName}
-                  onChange={(e) => setNewWorkerName(e.target.value)}
-                  placeholder="e.g. Rajesh Kumar"
-                  className={inputClass}
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold uppercase text-gray-500">Role / Designation</label>
-                <input
-                  type="text"
-                  required
-                  value={newWorkerRole}
-                  onChange={(e) => setNewWorkerRole(e.target.value)}
-                  placeholder="e.g. Senior Installer"
-                  className={inputClass}
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold uppercase text-gray-500">Daily Wage (₹)</label>
-                <input
-                  type="number"
-                  required
-                  min="0"
-                  value={newWorkerWage}
-                  onChange={(e) => setNewWorkerWage(e.target.value)}
-                  placeholder="e.g. 1200"
-                  className={inputClass}
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold uppercase text-gray-500">Phone Number (Optional)</label>
-                <input
-                  type="tel"
-                  value={newWorkerPhone}
-                  onChange={(e) => setNewWorkerPhone(e.target.value)}
-                  placeholder="e.g. +91 98765 43210"
-                  className={inputClass}
-                />
-              </div>
-
-              <div className="flex gap-3 mt-6">
-                <button
-                  type="button"
-                  onClick={() => setShowAddWorkerModal(false)}
-                  className="flex-1 bg-gray-100 hover:bg-gray-200 border border-gray-250 text-gray-600 font-bold py-2.5 rounded-xl cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSavingWorker}
-                  className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl cursor-pointer shadow-md flex items-center justify-center gap-1.5 disabled:opacity-50"
-                >
-                  {isSavingWorker ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      <span>Saving...</span>
-                    </>
-                  ) : (
-                    <span>Add Worker</span>
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Toast alert popup */}
-      {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 animate-slide-up">
-          <div className="bg-slate-900/90 border border-indigo-500/30 text-slate-200 px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2.5 max-w-sm backdrop-blur-md">
-            <div className="h-2 w-2 rounded-full bg-emerald-500 animate-ping shrink-0" />
-            <div className="text-xs font-semibold leading-relaxed">
-              {toastMessage}
-            </div>
-            <button
-              onClick={() => setToastMessage(null)}
-              className="p-1 hover:bg-slate-850 rounded text-slate-400 hover:text-white transition-colors ml-auto cursor-pointer"
-            >
-              <X className="w-3 h-3" />
-            </button>
           </div>
         </div>
       )}

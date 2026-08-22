@@ -116,6 +116,8 @@ def get_derived_products():
         })
     return result
 
+import hashlib
+
 class LoginPayload(BaseModel):
     email: str
     password: str
@@ -124,28 +126,46 @@ class LoginPayload(BaseModel):
     businessType: Optional[str] = ""
     currency: Optional[str] = ""
 
+class ProfileUpdatePayload(BaseModel):
+    name: str
+    businessName: str
+    businessType: str
+    currency: str
+    email: str
+
+def hash_password(password: str) -> str:
+    return hashlib.sha256(password.encode("utf-8")).hexdigest()
+
 # ----------------- REST ENDPOINTS -----------------
 
-@app.post("/api/auth/login")
-def login(payload: LoginPayload, response: Response = None):
-    from fastapi import Response as FAResponse
-    # Handle response parameter
-    response = response or FAResponse()
+@app.post("/api/auth/register")
+def register(payload: LoginPayload):
     email = payload.email.lower().strip()
+    users_col = get_collection("users")
     
-    # Store profile in db
-    name = payload.name or "Siddu"
-    businessName = payload.businessName or "BizPilot"
-    businessType = payload.businessType or "Clean Energy Systems & Green Technology"
-    currency = payload.currency or "INR"
+    if users_col.find_one({"email": email}):
+        raise HTTPException(status_code=400, detail="This email is already registered.")
+        
+    if len(payload.password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters.")
+        
+    user_doc = {
+        "email": email,
+        "password_hash": hash_password(payload.password),
+        "name": payload.name or "Operator",
+        "businessName": payload.businessName or "BizPilot",
+        "businessType": payload.businessType or "Wholesale & Distribution",
+        "currency": payload.currency or "USD"
+    }
+    users_col.insert_one(user_doc)
     
     profile = {
         "id": "profile_active",
         "email": email,
-        "name": name,
-        "businessName": businessName,
-        "businessType": businessType,
-        "currency": currency
+        "name": user_doc["name"],
+        "businessName": user_doc["businessName"],
+        "businessType": user_doc["businessType"],
+        "currency": user_doc["currency"]
     }
     
     get_collection("profile").delete_many({})
@@ -153,9 +173,50 @@ def login(payload: LoginPayload, response: Response = None):
     
     return {"success": True, "profile": profile}
 
-@app.post("/api/auth/register")
-def register(payload: LoginPayload):
-    return login(payload)
+@app.post("/api/auth/login")
+def login(payload: LoginPayload, response: Response = None):
+    from fastapi import Response as FAResponse
+    response = response or FAResponse()
+    email = payload.email.lower().strip()
+    password = payload.password
+    
+    users_col = get_collection("users")
+    user_doc = users_col.find_one({"email": email})
+    
+    demo_email = "gamigrrider18@gmail.com"
+    demo_password = "demo12345"
+    
+    if not user_doc:
+        if email == demo_email:
+            # Auto-register demo user with hash password
+            user_doc = {
+                "email": demo_email,
+                "password_hash": hash_password(demo_password),
+                "name": "Siddu",
+                "businessName": "Gamig Solar Solutions",
+                "businessType": "Solar Energy Systems & Green Technology",
+                "currency": "INR"
+            }
+            users_col.insert_one(user_doc)
+        else:
+            raise HTTPException(status_code=401, detail="Email not found. Please sign up.")
+            
+    if user_doc["password_hash"] != hash_password(password):
+        raise HTTPException(status_code=401, detail="Incorrect password for this email.")
+        
+    profile = {
+        "id": "profile_active",
+        "email": email,
+        "name": user_doc["name"],
+        "businessName": user_doc["businessName"],
+        "businessType": user_doc["businessType"],
+        "currency": user_doc["currency"]
+    }
+    
+    get_collection("profile").delete_many({})
+    get_collection("profile").insert_one(profile)
+    
+    return {"success": True, "profile": profile}
 
 @app.get("/api/profile")
 def get_profile(request: Request):
@@ -164,13 +225,37 @@ def get_profile(request: Request):
         if "_id" in p_doc:
             del p_doc["_id"]
         return p_doc
-    return {
-        "email": "gamigrrider18@gmail.com",
-        "name": "Siddu",
-        "businessName": "BizPilot",
-        "businessType": "Clean Energy Systems & Green Technology",
-        "currency": "INR"
-    }
+    raise HTTPException(status_code=401, detail="Unauthorized")
+
+@app.put("/api/profile")
+def update_profile(payload: ProfileUpdatePayload):
+    p_col = get_collection("profile")
+    p_doc = p_col.find_one({})
+    if not p_doc:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+        
+    email = payload.email.lower().strip()
+    
+    # Update active profile
+    p_col.update_one({}, {"$set": {
+        "email": email,
+        "name": payload.name,
+        "businessName": payload.businessName,
+        "businessType": payload.businessType,
+        "currency": payload.currency
+    }})
+    
+    # Update persistent database
+    users_col = get_collection("users")
+    users_col.update_one({"email": p_doc["email"]}, {"$set": {
+        "email": email,
+        "name": payload.name,
+        "businessName": payload.businessName,
+        "businessType": payload.businessType,
+        "currency": payload.currency
+    }})
+    
+    return {"status": "success"}
 
 @app.post("/api/auth/logout")
 def logout():

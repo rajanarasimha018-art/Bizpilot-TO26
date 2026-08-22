@@ -1,96 +1,169 @@
-// Mock Google Drive backups using localStorage for the demo version to avoid Firebase domain auth errors
+import { initializeApp } from "firebase/app";
+import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "firebase/auth";
+import firebaseConfig from "../firebase-applet-config.json";
+const app = initializeApp(firebaseConfig);
+export const auth = getAuth(app);
+const provider = new GoogleAuthProvider();
+provider.setCustomParameters({ prompt: "select_account" });
+provider.addScope("https://www.googleapis.com/auth/drive");
+provider.addScope("https://www.googleapis.com/auth/drive.file");
+provider.addScope("https://www.googleapis.com/auth/drive.readonly");
 let isSigningIn = false;
 let cachedAccessToken = null;
-
-export const auth = {
-  currentUser: { displayName: "Demo User", email: "demo@gmail.com" }
-};
-
 export const initAuth = (onAuthSuccess, onAuthFailure) => {
-  // Simulating no automatic Google Drive session on load unless cached
-  const savedToken = localStorage.getItem("bizpilot_gd_token");
-  const savedUser = localStorage.getItem("bizpilot_gd_user");
-  if (savedToken && savedUser) {
-    cachedAccessToken = savedToken;
-    setTimeout(() => {
-      if (onAuthSuccess) onAuthSuccess(JSON.parse(savedUser), savedToken);
-    }, 0);
-  } else {
-    setTimeout(() => {
+  return onAuthStateChanged(auth, async (user) => {
+    if (user) {
+      if (cachedAccessToken) {
+        if (onAuthSuccess) onAuthSuccess(user, cachedAccessToken);
+      } else if (!isSigningIn) {
+        cachedAccessToken = null;
+        if (onAuthFailure) onAuthFailure();
+      }
+    } else {
+      cachedAccessToken = null;
       if (onAuthFailure) onAuthFailure();
-    }, 0);
-  }
-  // Return mock unsubscribe function
-  return () => {};
+    }
+  });
 };
-
 export const googleSignIn = async () => {
-  cachedAccessToken = "mock-google-drive-demo-token";
-  const user = { displayName: "Demo User", email: "demo@gmail.com" };
-  localStorage.setItem("bizpilot_gd_token", cachedAccessToken);
-  localStorage.setItem("bizpilot_gd_user", JSON.stringify(user));
-  return { user, accessToken: cachedAccessToken };
+  try {
+    isSigningIn = true;
+    const result = await signInWithPopup(auth, provider);
+    const credential = GoogleAuthProvider.credentialFromResult(result);
+    if (!credential?.accessToken) {
+      throw new Error("Failed to get Google Drive access token from authentication.");
+    }
+    cachedAccessToken = credential.accessToken;
+    return { user: result.user, accessToken: cachedAccessToken };
+  } catch (error) {
+    console.error("Google Sign-In Error:", error);
+    throw error;
+  } finally {
+    isSigningIn = false;
+  }
 };
-
 export const googleSignOut = async () => {
+  await signOut(auth);
   cachedAccessToken = null;
-  localStorage.removeItem("bizpilot_gd_token");
-  localStorage.removeItem("bizpilot_gd_user");
 };
-
 export const getAccessToken = () => {
   return cachedAccessToken;
 };
-
-// Mock Google Drive APIs using localStorage
-const getMockDriveBackups = () => {
-  const backups = localStorage.getItem("bizpilot_mock_gd_backups");
-  return backups ? JSON.parse(backups) : [];
-};
-
-const saveMockDriveBackups = (backups) => {
-  localStorage.setItem("bizpilot_mock_gd_backups", JSON.stringify(backups));
-};
-
 export const getOrCreateFolder = async (accessToken, folderName = "BizPilot Backups") => {
-  return "mock-folder-id-12345";
+  try {
+    const searchUrl = `https://www.googleapis.com/drive/v3/files?q=name='${encodeURIComponent(folderName)}' and mimeType='application/vnd.google-apps.folder' and trashed=false&fields=files(id)`;
+    const searchRes = await fetch(searchUrl, {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+    if (!searchRes.ok) {
+      throw new Error(`Folder search failed: ${searchRes.statusText}`);
+    }
+    const searchData = await searchRes.json();
+    if (searchData.files && searchData.files.length > 0) {
+      return searchData.files[0].id;
+    }
+    const createUrl = "https://www.googleapis.com/drive/v3/files";
+    const createRes = await fetch(createUrl, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        name: folderName,
+        mimeType: "application/vnd.google-apps.folder"
+      })
+    });
+    if (!createRes.ok) {
+      throw new Error(`Folder creation failed: ${createRes.statusText}`);
+    }
+    const createData = await createRes.json();
+    return createData.id;
+  } catch (error) {
+    console.error("Error finding or creating Google Drive folder:", error);
+    throw error;
+  }
 };
-
 export const uploadBackupFile = async (accessToken, folderId, filename, content) => {
-  const backups = getMockDriveBackups();
-  const newBackup = {
-    id: "mock-file-" + Date.now(),
-    name: filename,
-    size: JSON.stringify(content).length,
-    createdTime: new Date().toISOString(),
-    content: content
-  };
-  backups.unshift(newBackup);
-  saveMockDriveBackups(backups);
-  return newBackup;
+  try {
+    const boundary = "bizpilot_backup_boundary";
+    const metadata = {
+      name: filename,
+      mimeType: "application/json",
+      parents: [folderId]
+    };
+    const multipartBody = `\r
+--${boundary}\r
+Content-Type: application/json; charset=UTF-8\r
+\r
+${JSON.stringify(metadata)}\r
+--${boundary}\r
+Content-Type: application/json\r
+\r
+${JSON.stringify(content)}\r
+--${boundary}--`;
+    const uploadUrl = "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,size,createdTime";
+    const res = await fetch(uploadUrl, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": `multipart/related; boundary=${boundary}`
+      },
+      body: multipartBody
+    });
+    if (!res.ok) {
+      throw new Error(`Upload failed: ${res.statusText}`);
+    }
+    return await res.json();
+  } catch (error) {
+    console.error("Error uploading backup to Google Drive:", error);
+    throw error;
+  }
 };
-
 export const listBackupFiles = async (accessToken, folderId) => {
-  const backups = getMockDriveBackups();
-  // return metadata list compatible with Backups.jsx
-  return backups.map(b => ({
-    id: b.id,
-    name: b.name,
-    size: b.size,
-    createdTime: b.createdTime
-  }));
+  try {
+    const searchUrl = `https://www.googleapis.com/drive/v3/files?q='${folderId}' in parents and trashed=false and mimeType='application/json'&orderBy=createdTime desc&fields=files(id,name,size,createdTime)&pageSize=100`;
+    const res = await fetch(searchUrl, {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+    if (!res.ok) {
+      throw new Error(`Failed to list files: ${res.statusText}`);
+    }
+    const data = await res.json();
+    return data.files || [];
+  } catch (error) {
+    console.error("Error listing files from Google Drive folder:", error);
+    throw error;
+  }
 };
-
 export const downloadBackupContent = async (accessToken, fileId) => {
-  const backups = getMockDriveBackups();
-  const backup = backups.find(b => b.id === fileId);
-  if (!backup) throw new Error("File not found in Mock Google Drive");
-  return backup.content;
+  try {
+    const downloadUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
+    const res = await fetch(downloadUrl, {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+    if (!res.ok) {
+      throw new Error(`Failed to download file content: ${res.statusText}`);
+    }
+    return await res.json();
+  } catch (error) {
+    console.error("Error downloading file content from Google Drive:", error);
+    throw error;
+  }
 };
-
 export const deleteBackupFile = async (accessToken, fileId) => {
-  let backups = getMockDriveBackups();
-  backups = backups.filter(b => b.id !== fileId);
-  saveMockDriveBackups(backups);
-  return true;
+  try {
+    const deleteUrl = `https://www.googleapis.com/drive/v3/files/${fileId}`;
+    const res = await fetch(deleteUrl, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+    if (!res.ok) {
+      throw new Error(`Failed to delete file from Google Drive: ${res.statusText}`);
+    }
+    return true;
+  } catch (error) {
+    console.error("Error deleting file from Google Drive:", error);
+    throw error;
+  }
 };

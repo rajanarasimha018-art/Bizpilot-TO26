@@ -2,34 +2,34 @@ import { useState } from "react";
 import { Save, ShieldAlert, BadgeCheck, CheckCircle2 } from "lucide-react";
 const settingsThemeStyles = {
   cosmic: {
-    textAccent: "text-purple-700",
-    badgeBg: "bg-purple-50/50",
-    badgeBorder: "border-purple-200",
-    btnAccent: "bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm",
+    textAccent: "text-purple-400",
+    badgeBg: "bg-purple-500/5",
+    badgeBorder: "border-purple-500/10",
+    btnAccent: "bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-500/20",
     focusBorder: "focus:border-purple-500",
     glowLine: "via-purple-500"
   },
   emerald: {
-    textAccent: "text-teal-700",
-    badgeBg: "bg-teal-50/50",
-    badgeBorder: "border-teal-200",
-    btnAccent: "bg-teal-700 hover:bg-teal-800 text-white shadow-sm",
-    focusBorder: "focus:border-teal-500",
-    glowLine: "via-teal-500"
+    textAccent: "text-emerald-400",
+    badgeBg: "bg-emerald-500/5",
+    badgeBorder: "border-emerald-500/10",
+    btnAccent: "bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-500/20",
+    focusBorder: "focus:border-emerald-500",
+    glowLine: "via-emerald-500"
   },
   copper: {
-    textAccent: "text-amber-700",
-    badgeBg: "bg-amber-50/50",
-    badgeBorder: "border-amber-200",
-    btnAccent: "bg-amber-600 hover:bg-amber-700 text-white shadow-sm",
+    textAccent: "text-amber-400",
+    badgeBg: "bg-amber-500/5",
+    badgeBorder: "border-amber-500/10",
+    btnAccent: "bg-amber-600 hover:bg-amber-500 text-white shadow-amber-500/20",
     focusBorder: "focus:border-amber-500",
     glowLine: "via-amber-500"
   },
   lagoon: {
-    textAccent: "text-blue-700",
-    badgeBg: "bg-blue-50/50",
-    badgeBorder: "border-blue-200",
-    btnAccent: "bg-blue-600 hover:bg-blue-700 text-white shadow-sm",
+    textAccent: "text-blue-400",
+    badgeBg: "bg-blue-500/5",
+    badgeBorder: "border-blue-500/10",
+    btnAccent: "bg-blue-600 hover:bg-blue-500 text-white shadow-blue-500/20",
     focusBorder: "focus:border-blue-500",
     glowLine: "via-blue-500"
   }
@@ -78,11 +78,11 @@ export default function SettingsPage({
   }
       <div>
         <span className={`text-xs uppercase font-bold tracking-widest ${stTheme.textAccent} font-mono transition-all duration-500`}>Command Center Parameters</span>
-        <h1 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-gray-900 mt-1">Enterprise Settings</h1>
-        <p className="text-xs text-gray-500 mt-1">Configure your business parameters, localized currency codes, and visual theme configurations.</p>
+        <h1 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-white mt-1">Enterprise Settings</h1>
+        <p className="text-xs text-slate-400 mt-1">Configure your business parameters, localized currency codes, and visual theme configurations.</p>
       </div>
 
-      {success && <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 text-teal-700 text-xs rounded-xl flex items-center gap-2">
+      {success && <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs rounded-xl flex items-center gap-2">
           <CheckCircle2 className="w-4 h-4 shrink-0" />
           <span>Enterprise parameters successfully synchronized to central BizPilot databases!</span>
         </div>}
@@ -100,13 +100,13 @@ export default function SettingsPage({
     /* Operator Name */
   }
             <div>
-              <label className="block text-[10px] uppercase font-bold tracking-wider text-gray-500 mb-1.5">Your Executive Name</label>
+              <label className="block text-[10px] uppercase font-bold tracking-wider text-slate-400 mb-1.5">Your Executive Name</label>
               <input
     type="text"
     required
     value={name}
     onChange={(e) => setName(e.target.value)}
-    className={`w-full bg-gray-50 border border-gray-200 rounded-xl py-2.5 px-3.5 text-xs ${stTheme.focusBorder} focus:outline-none text-gray-900 transition-all duration-300`}
+    className={`w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3.5 text-xs ${stTheme.focusBorder} focus:outline-none text-slate-200 transition-all duration-300`}
   />
             </div>
 
@@ -114,13 +114,13 @@ export default function SettingsPage({
     /* Account Email */
   }
             <div>
-              <label className="block text-[10px] uppercase font-bold tracking-wider text-gray-500 mb-1.5">Registered Email</label>
+              <label className="block text-[10px] uppercase font-bold tracking-wider text-slate-400 mb-1.5">Registered Email</label>
               <input
     type="email"
     required
     value={email}
     onChange={(e) => setEmail(e.target.value)}
-    className={`w-full bg-gray-50 border border-gray-200 rounded-xl py-2.5 px-3.5 text-xs ${stTheme.focusBorder} focus:outline-none text-gray-900 transition-all duration-300`}
+    className={`w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3.5 text-xs ${stTheme.focusBorder} focus:outline-none text-slate-200 transition-all duration-300`}
   />
             </div>
 
@@ -132,13 +132,13 @@ export default function SettingsPage({
     /* Business/Enterprise Name */
   }
             <div>
-              <label className="block text-[10px] uppercase font-bold tracking-wider text-gray-500 mb-1.5">Enterprise Name</label>
+              <label className="block text-[10px] uppercase font-bold tracking-wider text-slate-400 mb-1.5">Enterprise Name</label>
               <input
     type="text"
     required
     value={businessName}
     onChange={(e) => setBusinessName(e.target.value)}
-    className={`w-full bg-gray-50 border border-gray-200 rounded-xl py-2.5 px-3.5 text-xs ${stTheme.focusBorder} focus:outline-none text-gray-900 transition-all duration-300`}
+    className={`w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3.5 text-xs ${stTheme.focusBorder} focus:outline-none text-slate-200 transition-all duration-300`}
   />
             </div>
 
@@ -146,11 +146,11 @@ export default function SettingsPage({
     /* Enterprise Type */
   }
             <div>
-              <label className="block text-[10px] uppercase font-bold tracking-wider text-gray-500 mb-1.5">Enterprise Type</label>
+              <label className="block text-[10px] uppercase font-bold tracking-wider text-slate-400 mb-1.5">Enterprise Type</label>
               <select
     value={businessType}
     onChange={(e) => setBusinessType(e.target.value)}
-    className={`w-full bg-gray-50 border border-gray-200 rounded-xl py-2.5 px-3.5 text-xs ${stTheme.focusBorder} focus:outline-none text-gray-800 transition-all duration-305`}
+    className={`w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3.5 text-xs ${stTheme.focusBorder} focus:outline-none text-slate-300 transition-all duration-305`}
   >
                 <option value="Wholesale & Distribution">Wholesale & Distribution</option>
                 <option value="Retail Boutique">Retail Boutique</option>
@@ -172,11 +172,11 @@ export default function SettingsPage({
     /* Preferred currency code */
   }
             <div>
-              <label className="block text-[10px] uppercase font-bold tracking-wider text-gray-500 mb-1.5">Standard Currency Code</label>
+              <label className="block text-[10px] uppercase font-bold tracking-wider text-slate-400 mb-1.5">Standard Currency Code</label>
               <select
     value={currency}
     onChange={(e) => setCurrency(e.target.value)}
-    className={`w-full bg-gray-50 border border-gray-200 rounded-xl py-2.5 px-3.5 text-xs ${stTheme.focusBorder} focus:outline-none text-gray-800 transition-all duration-305`}
+    className={`w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3.5 text-xs ${stTheme.focusBorder} focus:outline-none text-slate-300 transition-all duration-305`}
   >
                 <option value="INR">INR (₹)</option>
                 <option value="USD">USD ($)</option>
@@ -188,16 +188,30 @@ export default function SettingsPage({
             </div>
 
             {
-    /* Visual Theme Selection Removed */
+    /* Visual Theme Selection */
   }
+            <div>
+              <label className="block text-[10px] uppercase font-bold tracking-wider text-slate-400 mb-1.5">Workspace Theme style</label>
+              <select
+    value={theme}
+    onChange={(e) => onChangeTheme?.(e.target.value)}
+    className={`w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3.5 text-xs ${stTheme.focusBorder} focus:outline-none text-slate-300 transition-all duration-305`}
+  >
+                <option value="cosmic">Cosmic Midnight (Indigo/Violet)</option>
+                <option value="emerald">Royal Emerald (Jade/Gold)</option>
+                <option value="copper">Sunset Copper (Espresso/Amber)</option>
+                <option value="lagoon">Oceanic Lagoon (Teal/Cyan)</option>
+              </select>
+            </div>
+
           </div>
 
-          <div className="flex items-center gap-2 text-xs text-gray-500 font-semibold bg-gray-50/50 p-4 rounded-xl border border-gray-200 w-full">
-            <BadgeCheck className="w-4.5 h-4.5 shrink-0 text-teal-700" />
+          <div className="flex items-center gap-2 text-xs text-slate-400 font-semibold bg-slate-950/40 p-4 rounded-xl border border-slate-850 w-full">
+            <BadgeCheck className="w-4.5 h-4.5 shrink-0 text-emerald-400" />
             <span>AI Command Center & Ledger Database Synced</span>
           </div>
 
-          <div className="border-t border-gray-200 pt-6">
+          <div className="border-t border-slate-850 pt-6">
             <button
     type="submit"
     className={`px-6 py-2.5 ${stTheme.btnAccent} text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer`}
@@ -213,11 +227,11 @@ export default function SettingsPage({
       {
     /* Safety info card */
   }
-      <div className="bg-gray-50 border border-gray-250 rounded-2xl p-5 flex gap-4 items-start">
-        <ShieldAlert className="w-5 h-5 text-gray-400 shrink-0 mt-0.5" />
+      <div className="bg-slate-950 border border-slate-900 rounded-2xl p-5 flex gap-4 items-start">
+        <ShieldAlert className="w-5 h-5 text-slate-600 shrink-0 mt-0.5" />
         <div className="space-y-1">
-          <h4 className="text-xs font-bold text-gray-800">Operations Isolation Zone</h4>
-          <p className="text-[11px] text-gray-450 leading-relaxed">BizPilot automatically creates isolated, local database partitions to prevent cross-company leakage. Your API keys and client data are locked inside your secure container environment.</p>
+          <h4 className="text-xs font-bold text-slate-300">Operations Isolation Zone</h4>
+          <p className="text-[11px] text-slate-500 leading-relaxed">BizPilot automatically creates isolated, local database partitions to prevent cross-company leakage. Your API keys and client data are locked inside your secure container environment.</p>
         </div>
       </div>
 

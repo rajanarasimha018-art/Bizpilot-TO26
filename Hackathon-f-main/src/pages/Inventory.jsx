@@ -14,7 +14,11 @@ import {
   Camera,
   Activity,
   RefreshCw,
-  AlertCircle
+  AlertCircle,
+  X,
+  Mail,
+  MessageSquare,
+  Check
 } from "lucide-react";
 import { formatAmount } from "../types";
 
@@ -275,12 +279,16 @@ const mockProductDatabase = [
     image: "🔋"
   }
 ];
-export default function Inventory({ products, user, onAddProduct, onEditProduct, onDeleteProduct }) {
+export default function Inventory({ products, user, onAddProduct, onEditProduct, onDeleteProduct, onRefreshData }) {
   const navigate = useNavigate();
   const location = useLocation();
 
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
+
+  const [activeRestocks, setActiveRestocks] = useState(() => {
+    return JSON.parse(localStorage.getItem("bizpilot_active_restocks") || "{}");
+  });
 
   useEffect(() => {
     if (location.state?.autoOpenScanner) {
@@ -298,6 +306,10 @@ export default function Inventory({ products, user, onAddProduct, onEditProduct,
       setDescription("Scanned Barcode: " + location.state.prefillBarcode);
       setSupplier("Unknown Supplier");
       setModalOpen(true);
+      navigate(location.pathname, { replace: true, state: {} });
+    } else if (location.state?.autoOpenRestock) {
+      const { product, qty } = location.state.autoOpenRestock;
+      handleRequestRestock(product, qty);
       navigate(location.pathname, { replace: true, state: {} });
     }
   }, [location, navigate]);
@@ -318,6 +330,208 @@ export default function Inventory({ products, user, onAddProduct, onEditProduct,
   const [showDemoSelector, setShowDemoSelector] = useState(false);
   const [highlightedProductId, setHighlightedProductId] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
+  const triggerToast = (msg) => {
+    setToastMessage(msg);
+    setTimeout(() => {
+      setToastMessage(null);
+    }, 4500);
+  };
+
+  const demoSuppliers = {
+    "ABC Foods": {
+      name: "ABC Foods Supply",
+      email: "orders@abcfoods.com",
+      phone: "+919876543210"
+    },
+    "Nestlé Wholesale": {
+      name: "Nestlé Wholesale Supply",
+      email: "procurement@nestle-dist.com",
+      phone: "+918765432109"
+    },
+    "Waaree": {
+      name: "Waaree Solar Technologies",
+      email: "fulfillment@waaree.com",
+      phone: "+919988776655"
+    },
+    "Apex Power": {
+      name: "Apex Power Distribution",
+      email: "sales@apexpower.com",
+      phone: "+917766554433"
+    }
+  };
+
+  const getSupplierDetails = (supplierName) => {
+    const name = supplierName || "Default Supplier";
+    if (demoSuppliers[name]) {
+      return demoSuppliers[name];
+    }
+    const slug = name.toLowerCase().replace(/[^a-z0-9]/g, "");
+    return {
+      name: name,
+      email: `orders@${slug || "supplier"}.com`,
+      phone: "+919900990099"
+    };
+  };
+
+  const [restockModalOpen, setRestockModalOpen] = useState(false);
+  const [selectedRestockProduct, setSelectedRestockProduct] = useState(null);
+  const [recommendedQty, setRecommendedQty] = useState(100);
+
+  const handleRequestRestock = (product, recommendedAmount = 100) => {
+    setSelectedRestockProduct(product);
+    setRecommendedQty(recommendedAmount);
+    setRestockModalOpen(true);
+  };
+
+  const initiateRestock = async (product, qty, communicationType) => {
+    try {
+      const res = await fetch("/api/stock-requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          productId: product.id,
+          requestedQty: qty,
+          requestedBy: user?.name || "Business Owner",
+          note: `AI Recommended Restock via ${communicationType}`
+        })
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        const requestId = data.request_id;
+        
+        const timestamp = new Date().toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+        const dateString = new Date().toLocaleDateString(undefined, { month: "short", day: "numeric" });
+        const fullTime = `${dateString} ${timestamp}`;
+        
+        const activeRestock = {
+          id: requestId,
+          productId: product.id,
+          productName: product.name,
+          qty: qty,
+          dealer: product.supplier || "Local Supplier",
+          status: "Request Initiated",
+          communication: `${communicationType} Draft Created`,
+          timestamp: fullTime
+        };
+        
+        const restocks = JSON.parse(localStorage.getItem("bizpilot_active_restocks") || "{}");
+        restocks[product.id] = activeRestock;
+        localStorage.setItem("bizpilot_active_restocks", JSON.stringify(restocks));
+        setActiveRestocks(restocks);
+        
+        const auditLogs = JSON.parse(localStorage.getItem("bizpilot_audit_trail") || "[]");
+        const newLogs = [
+          {
+            time: timestamp,
+            type: "AI detected low stock",
+            message: `${product.name}: ${qty} units recommended`
+          },
+          {
+            time: timestamp,
+            type: "Restock request initiated",
+            message: `Dealer: ${product.supplier || "Local Supplier"} | Comm: ${communicationType}`
+          },
+          ...auditLogs
+        ];
+        localStorage.setItem("bizpilot_audit_trail", JSON.stringify(newLogs));
+        
+        if (onRefreshData) {
+          await onRefreshData();
+        }
+      }
+    } catch (err) {
+      console.error("Failed to initiate restock in backend:", err);
+    }
+  };
+
+  const handleMarkReceived = async (req) => {
+    try {
+      const res = await fetch(`/api/stock-requests/${req.id}/receive`, {
+        method: "PATCH"
+      });
+      
+      if (res.ok) {
+        const timestamp = new Date().toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+        
+        const restocks = JSON.parse(localStorage.getItem("bizpilot_active_restocks") || "{}");
+        if (restocks[req.productId]) {
+          restocks[req.productId].status = "Received";
+          localStorage.setItem("bizpilot_active_restocks", JSON.stringify(restocks));
+          setActiveRestocks(restocks);
+        }
+        
+        const auditLogs = JSON.parse(localStorage.getItem("bizpilot_audit_trail") || "[]");
+        const newLogs = [
+          {
+            time: timestamp,
+            type: "Restock received",
+            message: `+${req.qty} units added to inventory (${req.productName})`
+          },
+          ...auditLogs
+        ];
+        localStorage.setItem("bizpilot_audit_trail", JSON.stringify(newLogs));
+        
+        triggerToast("Restock received — inventory updated successfully.");
+        
+        if (onRefreshData) {
+          await onRefreshData();
+        }
+      }
+    } catch (err) {
+      console.error("Failed to mark request received in backend:", err);
+    }
+  };
+
+  const handleDraftEmail = async () => {
+    if (!selectedRestockProduct) return;
+    const supplierInfo = getSupplierDetails(selectedRestockProduct.supplier);
+    const subject = encodeURIComponent(`Restock Request — ${selectedRestockProduct.name} × ${recommendedQty}`);
+    const body = encodeURIComponent(
+`Dear ${supplierInfo.name},
+
+We would like to request ${recommendedQty} units of ${selectedRestockProduct.name}.
+
+Please confirm:
+- Availability
+- Unit price
+- Expected delivery date
+
+Thank you,
+${user?.businessName || "BizPilot Client"}
+Powered by BizPilot`
+    );
+    const mailtoUrl = `mailto:${supplierInfo.email}?subject=${subject}&body=${body}`;
+    window.open(mailtoUrl, "_self");
+    
+    await initiateRestock(selectedRestockProduct, recommendedQty, "Email");
+    
+    setRestockModalOpen(false);
+    triggerToast(`Email draft opened for ${supplierInfo.name}`);
+  };
+
+  const handleDraftWhatsApp = async () => {
+    if (!selectedRestockProduct) return;
+    const supplierInfo = getSupplierDetails(selectedRestockProduct.supplier);
+    const text = encodeURIComponent(
+`Hello ${supplierInfo.name},
+
+BizPilot is requesting ${recommendedQty} units of ${selectedRestockProduct.name} for ${user?.businessName || "our business"}.
+
+Please confirm availability, price, and expected delivery date.
+
+Thank you,
+BizPilot`
+    );
+    const cleanedPhone = supplierInfo.phone.replace(/[^0-9+]/g, "");
+    const whatsappUrl = `https://wa.me/${cleanedPhone}?text=${text}`;
+    window.open(whatsappUrl, "_blank");
+    
+    await initiateRestock(selectedRestockProduct, recommendedQty, "WhatsApp");
+    
+    setRestockModalOpen(false);
+    triggerToast(`WhatsApp message prepared for ${supplierInfo.name}`);
+  };
   const [scanSuccessFlash, setScanSuccessFlash] = useState(false);
   const [scanHistory, setScanHistory] = useState([
     { name: "Nescafe Coffee 100g", barcode: "8901058002471", time: "11:42 AM", status: "Success" },
@@ -936,9 +1150,19 @@ export default function Inventory({ products, user, onAddProduct, onEditProduct,
                   </div>
                 </div>
 
-                <div className="mt-3 bg-teal-50/50 rounded-lg p-2.5 border border-teal-100 text-[10px] text-teal-850 font-medium leading-relaxed">
-                  <span className="font-bold text-teal-900 block mb-0.5 uppercase tracking-widest text-[8px]">AI Recommendation</span>
-                  Restock {scannedProduct.quantity <= scannedProduct.minStock ? "100" : "50"} units within 48 hours to secure high seasonal margins.
+                <div className="mt-3 bg-teal-50/50 rounded-lg p-2.5 border border-teal-100 text-[10px] text-teal-850 font-medium leading-relaxed flex flex-col gap-2">
+                  <div>
+                    <span className="font-bold text-teal-900 block mb-0.5 uppercase tracking-widest text-[8px]">AI Recommendation</span>
+                    Restock {scannedProduct.quantity <= scannedProduct.minStock ? "100" : "50"} units within 48 hours to secure high seasonal margins.
+                  </div>
+                  {scannedProduct.quantity <= scannedProduct.minStock && (
+                    <button
+                      onClick={() => handleRequestRestock(scannedProduct, 100)}
+                      className="mt-1 w-full bg-teal-700 hover:bg-teal-850 text-white font-bold py-1.5 px-3 rounded text-[10px] cursor-pointer text-center"
+                    >
+                      Request Restock
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -1038,7 +1262,28 @@ export default function Inventory({ products, user, onAddProduct, onEditProduct,
     return <tr key={p.id} className="hover:bg-gray-50 group">
                       <td className="py-3.5 px-6">
                         <div className="max-w-xs">
-                          <p className="font-semibold text-gray-900">{p.name}</p>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="font-semibold text-gray-900">{p.name}</span>
+                            {(() => {
+                              const activeRequest = activeRestocks[p.id];
+                              if (activeRequest) {
+                                if (activeRequest.status === "Received") {
+                                  return (
+                                    <span className="px-1.5 py-0.5 rounded bg-green-50 text-green-705 border border-green-200 text-[8px] font-bold uppercase tracking-wider font-mono">
+                                      RESTOCK RECEIVED
+                                    </span>
+                                  );
+                                } else {
+                                  return (
+                                    <span className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-705 border border-amber-200 text-[8px] font-bold uppercase tracking-wider font-mono">
+                                      RESTOCK REQUESTED
+                                    </span>
+                                  );
+                                }
+                              }
+                              return null;
+                            })()}
+                          </div>
                           <p className="text-[10px] text-gray-450 mt-0.5 truncate">{p.description || "No description provided."}</p>
                         </div>
                       </td>
@@ -1061,6 +1306,24 @@ export default function Inventory({ products, user, onAddProduct, onEditProduct,
                       <td className="py-3.5 px-4 text-gray-500">{p.supplier || "Local supplier"}</td>
                       <td className="py-3.5 px-6 text-center">
                         <div className="flex items-center justify-center gap-2">
+                          {isLow && !activeRestocks[p.id] && (
+                            <button
+                              onClick={() => handleRequestRestock(p, 100)}
+                              className="p-1.5 bg-white hover:bg-amber-50 border border-gray-250 hover:border-amber-200 text-amber-600 rounded-md transition-colors cursor-pointer shadow-sm"
+                              title="Request Restock"
+                            >
+                              <RefreshCw className="w-3.5 h-3.5 animate-spin-hover" />
+                            </button>
+                          )}
+                          {activeRestocks[p.id] && activeRestocks[p.id].status === "Request Initiated" && (
+                            <button
+                              onClick={() => handleMarkReceived(activeRestocks[p.id])}
+                              className="p-1.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-250 hover:border-emerald-300 text-emerald-700 rounded-md transition-colors cursor-pointer shadow-sm"
+                              title="Mark as Received"
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                           <button
                             onClick={() => handleOpenEditModal(p)}
                             className="p-1.5 bg-white hover:bg-gray-50 border border-gray-250 text-gray-450 hover:text-teal-700 rounded-md transition-colors cursor-pointer shadow-sm"
@@ -1364,6 +1627,100 @@ export default function Inventory({ products, user, onAddProduct, onEditProduct,
                 Cancel
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Restock Confirmation Modal */}
+      {restockModalOpen && selectedRestockProduct && (() => {
+        const supplierInfo = getSupplierDetails(selectedRestockProduct.supplier);
+        return (
+          <div className="fixed inset-0 z-[100] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white border border-gray-200 w-full max-w-md rounded-2xl overflow-hidden shadow-2xl relative p-6 space-y-4">
+              <div className="absolute top-0 left-10 right-10 h-[1px] bg-gradient-to-r from-transparent via-teal-700 to-transparent" />
+              
+              <div className="flex justify-between items-start">
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-teal-750 tracking-wider font-mono">Procurement Draft</span>
+                  <h3 className="font-display font-bold text-base text-gray-900 mt-0.5">Restock Request Confirmation</h3>
+                </div>
+                <button
+                  onClick={() => {
+                    setRestockModalOpen(false);
+                    setSelectedRestockProduct(null);
+                  }}
+                  className="text-gray-400 hover:text-gray-650 transition-colors font-semibold text-sm cursor-pointer"
+                >
+                  Cancel
+                </button>
+              </div>
+
+              <div className="bg-gray-50 border border-gray-150 p-4 rounded-xl space-y-2 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-gray-550 font-medium">Product:</span>
+                  <span className="text-gray-900 font-bold">{selectedRestockProduct.name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-550 font-medium">Recommended Qty:</span>
+                  <span className="text-teal-700 font-bold font-mono">{recommendedQty} Units</span>
+                </div>
+                <div className="flex justify-between border-t border-gray-250/50 pt-2 mt-2">
+                  <span className="text-gray-550 font-medium">Dealer Name:</span>
+                  <span className="text-gray-900 font-semibold">{supplierInfo.name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-550 font-medium">Dealer Email:</span>
+                  <span className="text-gray-800 font-mono">{supplierInfo.email}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-550 font-medium">Dealer Phone:</span>
+                  <span className="text-gray-800 font-mono">{supplierInfo.phone}</span>
+                </div>
+              </div>
+
+              {/* AI Explainer Segment */}
+              <div className="bg-teal-50/50 border border-teal-150 p-3.5 rounded-xl text-left mt-3">
+                <span className="text-[9px] font-bold text-teal-800 uppercase tracking-widest font-mono block">Why this action?</span>
+                <p className="text-xs text-teal-900 mt-1 leading-normal font-sans">
+                  Current stock ({selectedRestockProduct.quantity || 0} units) is below the safety threshold of {selectedRestockProduct.minStock || 5} units. BizPilot recommends replenishing {recommendedQty} units to reduce stock-out risk.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 pt-2">
+                <button
+                  onClick={handleDraftEmail}
+                  className="w-full bg-gradient-to-tr from-teal-750 to-emerald-600 hover:from-teal-800 hover:to-emerald-700 text-white font-bold py-2.5 rounded-lg transition-all text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+                >
+                  <Mail className="w-3.5 h-3.5" />
+                  <span>Draft Email</span>
+                </button>
+                <button
+                  onClick={handleDraftWhatsApp}
+                  className="w-full bg-white hover:bg-gray-50 border border-gray-250 text-gray-700 font-bold py-2.5 rounded-lg transition-all text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+                >
+                  <MessageSquare className="w-3.5 h-3.5 text-green-600" />
+                  <span>Draft WhatsApp</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Toast alert popup */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 animate-slide-up">
+          <div className="bg-slate-900/90 border border-teal-500/30 text-slate-200 px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2.5 max-w-sm backdrop-blur-md">
+            <div className="h-2 w-2 rounded-full bg-emerald-500 animate-ping shrink-0" />
+            <div className="text-xs font-semibold leading-relaxed">
+              {toastMessage}
+            </div>
+            <button
+              onClick={() => setToastMessage(null)}
+              className="p-1 hover:bg-slate-850 rounded text-slate-400 hover:text-white transition-colors ml-auto cursor-pointer"
+            >
+              <X className="w-3 h-3" />
+            </button>
           </div>
         </div>
       )}

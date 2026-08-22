@@ -342,13 +342,6 @@
       "date": "2026-07-10",
       "status": "present",
       "hours_worked": 6.0
-    },
-    {
-      "id": "att_w1_20260717",
-      "worker_id": "w1",
-      "date": "2026-07-17",
-      "status": "present",
-      "hours_worked": 8.0
     }
   ],
   "stock_movements": [
@@ -487,10 +480,48 @@
       "product_id": "p5",
       "requested_qty": 20,
       "requested_by": "Ravi Kumar",
-      "status": "pending",
+      "status": "approved",
       "date": "2026-07-14",
       "note": "running low, customers asking"
     }
   ],
-  "profile": []
+  "profile": [
+    {
+      "id": "profile_active",
+      "email": "gamigrrider18@gmail.com",
+      "name": "Siddu",
+      "businessName": "Gamig Solar Solutions",
+      "businessType": "Solar Energy Systems & Green Technology",
+      "currency": "INR"
+    }
+  ],
+  "users": [
+    {
+      "email": "testpilot@example.com",
+      "password_hash": "b55c8792d1ce458e279308835f8a97b580263503e76e1998e279703e35ad0c2e",
+      "name": "Test Pilot Operator",
+      "businessName": "Test Green Systems",
+      "businessType": "Wholesale & Distribution",
+      "currency": "USD",
+      "id": "-5126224674685832194"
+    },
+    {
+      "email": "gamigrrider18@gmail.com",
+      "password_hash": "51459c23ca91ebce271449dd8b5c26751c99039c2ae4c628067898ca0e104039",
+      "name": "Siddu",
+      "businessName": "Gamig Solar Solutions",
+      "businessType": "Solar Energy Systems & Green Technology",
+      "currency": "INR",
+      "id": "-5279430863059467250"
+    },
+    {
+      "email": "admin@greenpower.com",
+      "password_hash": "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f",
+      "name": "Test Admin",
+      "businessName": "Green Power Corp",
+      "businessType": "Solar Energy Systems & Green Technology",
+      "currency": "INR",
+      "id": "3692781076103644283"
+    }
+  ]
 }

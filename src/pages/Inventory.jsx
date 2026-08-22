@@ -1,6 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
 import {
   Plus,
   Search,
@@ -315,10 +314,6 @@ export default function Inventory({ products, user, onAddProduct, onEditProduct,
 
   const [showScannerModal, setShowScannerModal] = useState(false);
   const [scannedProduct, setScannedProduct] = useState(null);
-  const [showDemoSelector, setShowDemoSelector] = useState(false);
-  const [highlightedProductId, setHighlightedProductId] = useState(null);
-  const [toastMessage, setToastMessage] = useState(null);
-  const [scanSuccessFlash, setScanSuccessFlash] = useState(false);
   const [scanHistory, setScanHistory] = useState([
     { name: "Nescafe Coffee 100g", barcode: "8901058002471", time: "11:42 AM", status: "Success" },
     { name: "Vim Bar 300g", barcode: "8901030656111", time: "11:30 AM", status: "Success" }
@@ -327,10 +322,9 @@ export default function Inventory({ products, user, onAddProduct, onEditProduct,
   const [isScanningActive, setIsScanningActive] = useState(false);
   const [showNotFoundDialog, setShowNotFoundDialog] = useState(false);
   const [notFoundBarcode, setNotFoundBarcode] = useState("");
-  const [scannerStatus, setScannerStatus] = useState("Position Barcode in Center");
+  const [cameraStream, setCameraStream] = useState(null);
   
-  
-  const html5QrCodeRef = useRef(null);
+  const videoRef = useRef(null);
   const progressIntervalRef = useRef(null);
 
   const getStockStatusBadge = (stock, minS) => {
@@ -348,223 +342,74 @@ export default function Inventory({ products, user, onAddProduct, onEditProduct,
     ]);
   };
 
-  const handleLookupBarcode = async (barcodeVal) => {
-    // 1. Search local active catalog
+  const handleLookupBarcode = (barcodeVal) => {
     let found = products.find(p => p.description && p.description.includes(barcodeVal));
     if (!found) {
-      found = products.find(p => p.sku === barcodeVal || p.name.toLowerCase().includes(barcodeVal.toLowerCase()));
+      found = products.find(p => p.sku === barcodeVal || p.name.includes(barcodeVal));
     }
 
     if (found) {
       const mappedProduct = {
         name: found.name,
         barcode: barcodeVal,
-        brand: found.brand || "Active Catalog",
-        category: found.category || "General Goods",
-        mrp: Math.round(found.price * 1.15),
+        brand: "Active Catalog",
+        category: found.category,
+        mrp: found.price * 1.15,
         price: found.price,
         cost: found.cost,
         quantity: found.quantity,
-        minStock: found.minStock || 5,
+        minStock: found.minStock,
         supplier: found.supplier || "Local Supplier",
         warehouse: "Central Warehouse",
         expiry: "2026-12-31",
         sku: found.sku,
         description: found.description || "",
-        image: "📦",
-        isAlreadyInInventory: true
+        image: "📦"
       };
       setScannedProduct(mappedProduct);
-      setScannerStatus("Barcode Detected");
       addToScanHistory(mappedProduct.name, barcodeVal, "Success");
-      
-      // Highlight the product row
-      setHighlightedProductId(found.id);
-      setTimeout(() => {
-        const row = document.getElementById("product-row-" + found.id);
-        if (row) row.scrollIntoView({ behavior: "smooth", block: "center" });
-      }, 350);
-      setTimeout(() => setHighlightedProductId(null), 5000);
-      return;
-    }
+    } else {
+      const mockItem = mockProductDatabase.find(p => p.barcode === barcodeVal);
+      if (mockItem) {
+        const newPayload = {
+          name: mockItem.name,
+          sku: mockItem.sku,
+          category: mockItem.category,
+          price: mockItem.price,
+          cost: mockItem.cost,
+          quantity: mockItem.quantity,
+          minStock: mockItem.minStock,
+          description: `[Barcode: ${mockItem.barcode}] ${mockItem.description}`,
+          supplier: mockItem.supplier
+        };
+        onAddProduct(newPayload);
 
-    // 2. Search OpenFoodFacts public registry as fallback to help add new products
-    setScannerStatus("Querying public database...");
-    try {
-      const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcodeVal}.json`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.status === 1 && data.product) {
-          const prod = data.product;
-          const name = prod.product_name || prod.product_name_en || "Unknown Barcode Item";
-          const brand = prod.brands || "Public Registry";
-          const category = prod.categories_tags?.[0]?.replace("en:", "") || "General Goods";
-          const mappedApiProduct = {
-            name: name,
-            barcode: barcodeVal,
-            brand: brand,
-            category: category,
-            mrp: 150,
-            price: 130,
-            cost: 95,
-            quantity: 10,
-            minStock: 5,
-            supplier: "Import Distributors",
-            warehouse: "Central Warehouse",
-            expiry: "2027-12-31",
-            sku: `OFF-${barcodeVal.substring(0, 6)}`,
-            description: prod.generic_name || "Product retrieved from OpenFoodFacts public database.",
-            image: "🛒",
-            isAlreadyInInventory: false
-          };
-          
-          setScannedProduct(mappedApiProduct);
-          setScannerStatus("Barcode Detected");
-          addToScanHistory(name, barcodeVal, "Success");
-          return;
-        }
+        setScannedProduct(mockItem);
+        addToScanHistory(mockItem.name, barcodeVal, "Success");
+      } else {
+        setNotFoundBarcode(barcodeVal);
+        setShowNotFoundDialog(true);
+        addToScanHistory("Unknown Product", barcodeVal, "Failed");
       }
-    } catch (err) {
-      console.warn("Public API query failed", err);
     }
-
-    // 3. Fallback to Unknown Product flow
-    setNotFoundBarcode(barcodeVal);
-    setShowNotFoundDialog(true);
-    setScannerStatus("Product Not Found");
-    addToScanHistory("Unknown Product", barcodeVal, "Failed");
   };
+
   const handleStartScanner = () => {
     setScannedProduct(null);
     setShowScannerModal(true);
     setIsScanningActive(true);
     setScanningProgress(0);
-    setShowDemoSelector(false);
-  };
 
-  const cleanupScanner = async () => {
-    if (progressIntervalRef.current) {
-      clearInterval(progressIntervalRef.current);
-      progressIntervalRef.current = null;
-    }
-    
-    if (html5QrCodeRef.current) {
-      const scanner = html5QrCodeRef.current;
-      html5QrCodeRef.current = null;
-      
-      console.log("Scanner Stopped");
-      
-      if (scanner.isScanning) {
-        try {
-          await scanner.stop();
-        } catch (e) {
-          console.error("Error stopping scanner stream:", e);
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+      .then((stream) => {
+        setCameraStream(stream);
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
         }
-      }
-      
-      if (document.getElementById("inventory-scanner-reader")) {
-        try {
-          scanner.clear();
-        } catch (e) {
-          console.warn("Error clearing scanner canvas container:", e);
-        }
-      }
-    }
-  };
-
-  const startCameraScanning = () => {
-    cleanupScanner();
-
-    setScannerStatus("Initializing Camera...");
-    console.log("Scanner Started");
-    
-    const html5QrCode = new Html5Qrcode("inventory-scanner-reader");
-    html5QrCodeRef.current = html5QrCode;
-
-    const qrCodeSuccessCallback = (decodedText) => {
-      console.log("Barcode:", decodedText);
-      
-      if (navigator.vibrate) {
-        navigator.vibrate(200);
-      }
-      
-      setScanSuccessFlash(true);
-      setScannerStatus(`✓ Barcode Detected: ${decodedText}`);
-      setToastMessage("Barcode scanned successfully!");
-      
-      if (html5QrCode.isScanning) {
-        html5QrCode.stop().then(() => {
-          console.log("Scanner Stopped");
-        }).catch(e => console.error(e));
-      }
-
-      setTimeout(() => {
-        cleanupScanner();
-        setShowScannerModal(false);
-        setIsScanningActive(false);
-        setScanSuccessFlash(false);
-        handleLookupBarcode(decodedText);
-      }, 600);
-    };
-
-    const config = {
-      fps: 10,
-      qrbox: 280,
-      formatsToSupport: [
-        Html5QrcodeSupportedFormats.EAN_13,
-        Html5QrcodeSupportedFormats.EAN_8,
-        Html5QrcodeSupportedFormats.UPC_A,
-        Html5QrcodeSupportedFormats.UPC_E,
-        Html5QrcodeSupportedFormats.CODE_128,
-        Html5QrcodeSupportedFormats.CODE_39,
-        Html5QrcodeSupportedFormats.QR_CODE
-      ]
-    };
-
-    Html5Qrcode.getCameras().then(devices => {
-      if (devices && devices.length > 0) {
-        let backCamera = devices.find(device => 
-          device.label.toLowerCase().includes("back") || 
-          device.label.toLowerCase().includes("rear") || 
-          device.label.toLowerCase().includes("environment")
-        );
-        const cameraId = backCamera ? backCamera.id : devices[devices.length - 1].id;
-        
-        return html5QrCode.start(
-          cameraId,
-          config,
-          qrCodeSuccessCallback
-        );
-      } else {
-        throw new Error("No cameras detected.");
-      }
-    })
-    .then(() => {
-      setIsScanningActive(true);
-      setScanningProgress(100);
-      setScannerStatus("Scanning...");
-    })
-    .catch((err) => {
-      console.error(err);
-      setScannerStatus("Camera permission denied or camera unavailable. Please check your browser permissions.");
-      setToastMessage("Camera access denied or no camera found.");
-      setShowDemoSelector(true);
-    });
-  };
-
-  const handleStopScanner = async () => {
-    await cleanupScanner();
-    setShowScannerModal(false);
-    setIsScanningActive(false);
-  };
-
-  const handleSimulateScan = (barcodeVal) => {
-    cleanupScanner();
-
-    setScanningProgress(0);
-    setIsScanningActive(true);
-    setScannedProduct(null);
-    setShowScannerModal(true);
+      })
+      .catch((err) => {
+        console.warn("No camera device or permission denied. Running simulator mode.");
+      });
 
     if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
     progressIntervalRef.current = setInterval(() => {
@@ -576,31 +421,29 @@ export default function Inventory({ products, user, onAddProduct, onEditProduct,
         return prev + 10;
       });
     }, 150);
+  };
 
+  const handleStopScanner = () => {
+    if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+    if (cameraStream) {
+      cameraStream.getTracks().forEach((track) => track.stop());
+      setCameraStream(null);
+    }
+    setShowScannerModal(false);
+    setIsScanningActive(false);
+  };
+
+  const handleSimulateScan = (barcodeVal) => {
+    handleStartScanner();
     setTimeout(() => {
-      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
-      setIsScanningActive(false);
-      
-      if (navigator.vibrate) {
-        navigator.vibrate(200);
+      handleStopScanner();
+      if (barcodeVal === "not_found_123") {
+        setNotFoundBarcode("8909999999999");
+        setShowNotFoundDialog(true);
+        addToScanHistory("Unknown Item", "8909999999999", "Failed");
+      } else {
+        handleLookupBarcode(barcodeVal);
       }
-
-      setScanSuccessFlash(true);
-      setScannerStatus(`✓ Barcode Detected: ${barcodeVal}`);
-      setToastMessage("Barcode scanned successfully!");
-
-      setTimeout(() => {
-        cleanupScanner();
-        setShowScannerModal(false);
-        setScanSuccessFlash(false);
-        if (barcodeVal === "not_found_123") {
-          setNotFoundBarcode("8909999999999");
-          setShowNotFoundDialog(true);
-          addToScanHistory("Unknown Product", "8909999999999", "Failed");
-        } else {
-          handleLookupBarcode(barcodeVal);
-        }
-      }, 600);
     }, 1600);
   };
 
@@ -620,22 +463,13 @@ export default function Inventory({ products, user, onAddProduct, onEditProduct,
   };
 
   useEffect(() => {
-    if (showScannerModal) {
-      const timer = setTimeout(() => {
-        startCameraScanning();
-      }, 350);
-      return () => clearTimeout(timer);
-    } else {
-      cleanupScanner();
-    }
-  }, [showScannerModal]);
-
-  useEffect(() => {
     return () => {
-      cleanupScanner();
+      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+      if (cameraStream) {
+        cameraStream.getTracks().forEach((track) => track.stop());
+      }
     };
-  }, []);
-
+  }, [cameraStream]);
   const categories = useMemo(() => {
     const cats = new Set(products.map((p) => p.category));
     return ["All", ...Array.from(cats)];
@@ -825,7 +659,7 @@ export default function Inventory({ products, user, onAddProduct, onEditProduct,
                 className="px-5 py-2.5 bg-teal-700 hover:bg-teal-850 text-xs font-semibold text-white rounded-lg transition-all shadow-sm flex items-center gap-2 cursor-pointer"
               >
                 <Camera className="w-4 h-4" />
-                <span>{scannedProduct ? "Scan Another Product" : "Scan Barcode"}</span>
+                <span>Scan Barcode</span>
               </button>
 
               {/* Simulation Select Dropdown */}
@@ -1274,39 +1108,32 @@ export default function Inventory({ products, user, onAddProduct, onEditProduct,
 
             <div className="p-6 flex flex-col items-center space-y-4">
               {/* CRT Camera Viewfinder */}
-              <div className={`relative w-full aspect-video bg-black rounded-lg overflow-hidden border flex items-center justify-center shadow-inner transition-all duration-300 ${
-                scanSuccessFlash ? "border-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.5)] scale-[1.02]" : "border-gray-200"
-              }`}>
-                <div id="inventory-scanner-reader" className="w-full h-full object-cover" />
+              <div className="relative w-full aspect-video bg-black rounded-lg overflow-hidden border border-gray-200 flex items-center justify-center shadow-inner">
+                {cameraStream ? (
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="text-center space-y-2.5">
+                    <RefreshCw className="w-8 h-8 text-teal-700 animate-spin mx-auto" />
+                    <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">Connecting Camera Stream...</p>
+                  </div>
+                )}
 
                 {/* Laser scan lines */}
-                {!scanSuccessFlash && (
-                  <div className="absolute top-0 left-0 w-full h-[2px] bg-rose-500 shadow-[0_0_10px_rgba(239,68,68,0.85)] pointer-events-none animate-bounce z-10" />
-                )}
-
-                {/* Success checkmark overlay */}
-                {scanSuccessFlash && (
-                  <div className="absolute inset-0 bg-emerald-500/10 backdrop-blur-[1px] flex flex-col items-center justify-center gap-2 z-20 animate-fade-in">
-                    <CheckCircle className="w-12 h-12 text-emerald-500 animate-bounce" />
-                    <span className="text-xs text-emerald-500 font-bold uppercase tracking-widest font-mono">Success!</span>
-                  </div>
-                )}
-
-                {scannerStatus.includes("Initializing") && (
-                  <div className="absolute inset-0 bg-slate-900/90 flex flex-col items-center justify-center gap-2 z-20">
-                    <RefreshCw className="w-8 h-8 text-teal-700 animate-spin" />
-                    <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">{scannerStatus}</span>
-                  </div>
-                )}
-
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/50 via-transparent to-slate-950/30 pointer-events-none z-10" />
-                <div className="crt-scanlines opacity-40 z-10" />
+                <div className="absolute top-0 left-0 w-full h-[2px] bg-rose-500 shadow-[0_0_10px_rgba(239,68,68,0.85)] pointer-events-none animate-bounce" />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/50 via-transparent to-slate-950/30 pointer-events-none" />
+                <div className="crt-scanlines opacity-40" />
               </div>
 
               {/* Progress and status */}
               <div className="w-full text-center space-y-2">
                 <span className="text-[10px] text-teal-700 font-bold uppercase tracking-widest font-mono">
-                  {scannerStatus}
+                  Scanning Product...
                 </span>
                 <div className="w-full h-1.5 bg-gray-150 rounded-full overflow-hidden border border-gray-200">
                   <div 
@@ -1332,7 +1159,7 @@ export default function Inventory({ products, user, onAddProduct, onEditProduct,
                 <AlertCircle className="w-5 h-5" />
               </span>
               <div>
-                <h3 className="font-display font-bold text-sm text-gray-900">Unknown Product</h3>
+                <h3 className="font-display font-bold text-sm text-gray-900">Product Not Found</h3>
                 <p className="text-[10px] text-gray-450 font-mono mt-0.5">Scanned: {notFoundBarcode}</p>
               </div>
             </div>
@@ -1346,7 +1173,7 @@ export default function Inventory({ products, user, onAddProduct, onEditProduct,
                 onClick={handleCreateProductFromScan}
                 className="w-full py-2 bg-teal-700 hover:bg-teal-850 text-xs font-semibold text-white rounded-lg transition-all shadow-sm cursor-pointer text-center"
               >
-                Register New Product
+                Create Product
               </button>
               <button
                 onClick={() => {
