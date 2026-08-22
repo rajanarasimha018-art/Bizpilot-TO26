@@ -14,6 +14,7 @@ def seed_db():
     bills_col = get_collection("bills")
     invoices_col = get_collection("invoices")
     requests_col = get_collection("stock_requests")
+    profile_col = get_collection("profile")
 
     products_col.delete_many({})
     workers_col.delete_many({})
@@ -22,15 +23,142 @@ def seed_db():
     bills_col.delete_many({})
     invoices_col.delete_many({})
     requests_col.delete_many({})
+    profile_col.delete_many({})
 
     # 1. Seed Products
-    # current_stock will be derived, but we store reorder_threshold and unit_cost
     products = [
-        {"id": "p1", "name": "Tier-1 Monocrystalline Solar Panel Pallet (40x 550W)", "category": "Solar Panels", "reorder_threshold": 5, "unit_cost": 2800.0},
-        {"id": "p2", "name": "Premium Hybrid Solar Inverter (15kW Three-Phase)", "category": "Inverters", "reorder_threshold": 5, "unit_cost": 1100.0},
-        {"id": "p3", "name": "High-Density Lithium Iron Phosphate (LiFePO4) Battery Pack (10kWh)", "category": "Energy Storage", "reorder_threshold": 10, "unit_cost": 1600.0},
-        {"id": "p4", "name": "Heavy-Duty Aluminum Roof Mounting Racks (Set of 10 arrays)", "category": "Mounting Systems", "reorder_threshold": 15, "unit_cost": 220.0},
-        {"id": "p5", "name": "Smart Net-Metering Power Gateway Controller", "category": "Controllers", "reorder_threshold": 10, "unit_cost": 180.0}
+        {
+            "id": "p1",
+            "name": "Printer Paper A4",
+            "category": "Office Supplies",
+            "reorder_threshold": 30,
+            "unit_cost": 4.0,
+            "price": 6.5,
+            "sku": "PAP-A4-XYZ",
+            "description": "High-quality 80gsm white A4 printing paper.",
+            "supplier": "Global Paper Co"
+        },
+        {
+            "id": "p2",
+            "name": "Ponds Powder",
+            "category": "Cosmetics",
+            "reorder_threshold": 10,
+            "unit_cost": 8.0,
+            "price": 12.0,
+            "sku": "PND-PWD-100",
+            "description": "Sandalwood talcum powder 100g.",
+            "supplier": "ABC Foods"
+        },
+        {
+            "id": "p3",
+            "name": "USB-C Cable",
+            "category": "Electronics",
+            "reorder_threshold": 20,
+            "unit_cost": 3.0,
+            "price": 5.0,
+            "sku": "USB-C-3FT",
+            "description": "3ft fast charging braided USB-C cable.",
+            "supplier": "Apex Power"
+        },
+        {
+            "id": "p4",
+            "name": "Wireless Mouse",
+            "category": "Electronics",
+            "reorder_threshold": 15,
+            "unit_cost": 12.0,
+            "price": 24.0,
+            "sku": "MSE-WRL-OPT",
+            "description": "Ergonomic 2.4GHz wireless optical mouse.",
+            "supplier": "Apex Power"
+        },
+        {
+            "id": "p5",
+            "name": "LED Bulb 12W",
+            "category": "Electronics",
+            "reorder_threshold": 25,
+            "unit_cost": 2.5,
+            "price": 4.5,
+            "sku": "LED-12W-WHT",
+            "description": "Energy-efficient warm white 12W LED bulb.",
+            "supplier": "Apex Power"
+        },
+        {
+            "id": "p6",
+            "name": "Notebook A5",
+            "category": "Office Supplies",
+            "reorder_threshold": 15,
+            "unit_cost": 2.0,
+            "price": 3.5,
+            "sku": "NTB-A5-RUL",
+            "description": "Ruled A5 notebook, 160 pages.",
+            "supplier": "Global Paper Co"
+        },
+        {
+            "id": "p7",
+            "name": "Keyboard",
+            "category": "Electronics",
+            "reorder_threshold": 15,
+            "unit_cost": 18.0,
+            "price": 30.0,
+            "sku": "KBD-USB-STD",
+            "description": "Standard full-size USB wired keyboard.",
+            "supplier": "Apex Power"
+        },
+        {
+            "id": "p8",
+            "name": "Ball Pen Pack",
+            "category": "Office Supplies",
+            "reorder_threshold": 30,
+            "unit_cost": 5.0,
+            "price": 8.0,
+            "sku": "PEN-BLU-10P",
+            "description": "Pack of 10 blue ink fine-point ball pens.",
+            "supplier": "ABC Foods"
+        },
+        {
+            "id": "p9",
+            "name": "Thermal Paper Roll",
+            "category": "Office Supplies",
+            "reorder_threshold": 15,
+            "unit_cost": 1.2,
+            "price": 2.0,
+            "sku": "THM-PR-3IN",
+            "description": "3-inch thermal POS receipt paper roll.",
+            "supplier": "Speedy Logistics"
+        },
+        {
+            "id": "p10",
+            "name": "Cleaning Spray",
+            "category": "Cleaning Utilities",
+            "reorder_threshold": 12,
+            "unit_cost": 3.5,
+            "price": 6.0,
+            "sku": "CLN-SPR-500",
+            "description": "Multi-surface disinfectant cleaning spray 500ml.",
+            "supplier": "Unilever Wholesale"
+        },
+        {
+            "id": "p11",
+            "name": "Power Adapter",
+            "category": "Electronics",
+            "reorder_threshold": 18,
+            "unit_cost": 8.0,
+            "price": 15.0,
+            "sku": "PWR-AD-20W",
+            "description": "20W USB-C PD fast charger wall adapter.",
+            "supplier": "Apex Power"
+        },
+        {
+            "id": "p12",
+            "name": "Packaging Boxes",
+            "category": "Packaging",
+            "reorder_threshold": 40,
+            "unit_cost": 0.8,
+            "price": 1.5,
+            "sku": "BOX-MED-BRN",
+            "description": "Medium corrugated brown shipping boxes.",
+            "supplier": "Unknown Supplier"
+        }
     ]
     for p in products:
         products_col.insert_one(p)
@@ -47,104 +175,87 @@ def seed_db():
         workers_col.insert_one(w)
     print(f"Seeded {len(workers)} workers.")
 
-    # 3. Seed Attendance (July 1 to July 10, 2026)
-    # Target date: 2026-07-15
-    attendance_records = []
-    base_date = datetime(2026, 7, 1)
-    
-    # Ravi Kumar (w1) - Present 8 days
-    for day in range(10):
-        date_str = (base_date + timedelta(days=day)).strftime("%Y-%m-%d")
-        status = "present" if day != 2 and day != 6 else "absent"
-        attendance_records.append({
-            "id": f"att_w1_{day}",
+    # 3. Seed Attendance
+    attendance_records = [
+        {
+            "id": "att_w1_0",
             "worker_id": "w1",
-            "date": date_str,
-            "status": status,
-            "hours_worked": 8.0 if status == "present" else 0.0
-        })
-
-    # Priya Sharma (w2) - Present 8 days, 8 hours each
-    for day in range(10):
-        date_str = (base_date + timedelta(days=day)).strftime("%Y-%m-%d")
-        status = "present" if day != 1 and day != 7 else "absent"
-        attendance_records.append({
-            "id": f"att_w2_{day}",
+            "date": "2026-08-01",
+            "status": "present",
+            "hours_worked": 8.0
+        },
+        {
+            "id": "att_w2_0",
             "worker_id": "w2",
-            "date": date_str,
-            "status": status,
-            "hours_worked": 8.0 if status == "present" else 0.0
-        })
-
-    # Amit Patel (w3) - Present 9 days
-    for day in range(10):
-        date_str = (base_date + timedelta(days=day)).strftime("%Y-%m-%d")
-        status = "present" if day != 4 else "absent"
-        attendance_records.append({
-            "id": f"att_w3_{day}",
-            "worker_id": "w3",
-            "date": date_str,
-            "status": status,
-            "hours_worked": 8.0 if status == "present" else 0.0
-        })
-
-    # Vikram Singh (w4) - Present 7 days, 6 hours worked
-    for day in range(10):
-        date_str = (base_date + timedelta(days=day)).strftime("%Y-%m-%d")
-        status = "present" if day in [0, 2, 3, 5, 6, 8, 9] else "absent"
-        attendance_records.append({
-            "id": f"att_w4_{day}",
-            "worker_id": "w4",
-            "date": date_str,
-            "status": status,
-            "hours_worked": 6.0 if status == "present" else 0.0
-        })
-
+            "date": "2026-08-01",
+            "status": "present",
+            "hours_worked": 8.0
+        }
+    ]
     for att in attendance_records:
         attendance_col.insert_one(att)
     print(f"Seeded {len(attendance_records)} attendance logs.")
 
-    # 4. Seed Stock Movements (Initial stock + some sales)
-    # p1 initial: 15, sold: 2, net: 13 (threshold: 5)
-    # p2 initial: 28, sold: 3, net: 25 (threshold: 5)
-    # p3 initial: 45, sold: 5, net: 40 (threshold: 10)
-    # p4 initial: 65, sold: 0, net: 65 (threshold: 15)
-    # p5 initial: 3, sold: 0, net: 3 (threshold: 10) -> LOW STOCK!
+    # 4. Seed Stock Movements
     movements = [
-        # Initial Stock Additions
-        {"id": "sm_init_p1", "product_id": "p1", "type": "added", "quantity": 15, "date": "2026-07-01", "source": "manual"},
-        {"id": "sm_init_p2", "product_id": "p2", "type": "added", "quantity": 28, "date": "2026-07-01", "source": "manual"},
-        {"id": "sm_init_p3", "product_id": "p3", "type": "added", "quantity": 45, "date": "2026-07-01", "source": "manual"},
-        {"id": "sm_init_p4", "product_id": "p4", "type": "added", "quantity": 65, "date": "2026-07-01", "source": "manual"},
-        {"id": "sm_init_p5", "product_id": "p5", "type": "added", "quantity": 3, "date": "2026-07-01", "source": "manual"},
-        # Sales Movements
-        {"id": "sm_sale_p1", "product_id": "p1", "type": "sold", "quantity": 2, "date": "2026-07-10", "source": "sale_1"},
-        {"id": "sm_sale_p2", "product_id": "p2", "type": "sold", "quantity": 3, "date": "2026-07-12", "source": "sale_2"},
-        {"id": "sm_sale_p3", "product_id": "p3", "type": "sold", "quantity": 5, "date": "2026-07-14", "source": "sale_3"}
+        {"id": "sm_d1_init", "product_id": "p1", "type": "added", "quantity": 30, "date": "2026-08-10", "source": "manual"},
+        {"id": "sm_d1_sale", "product_id": "p1", "type": "sold", "quantity": 12, "date": "2026-08-15", "source": "sale_1"},
+
+        {"id": "sm_d2_init", "product_id": "p2", "type": "added", "quantity": 10, "date": "2026-08-10", "source": "manual"},
+        {"id": "sm_d2_sale", "product_id": "p2", "type": "sold", "quantity": 7, "date": "2026-08-16", "source": "sale_2"},
+
+        {"id": "sm_d3_init", "product_id": "p3", "type": "added", "quantity": 50, "date": "2026-08-10", "source": "manual"},
+        {"id": "sm_d3_sale", "product_id": "p3", "type": "sold", "quantity": 8, "date": "2026-08-17", "source": "sale_3"},
+
+        {"id": "sm_d4_init", "product_id": "p4", "type": "added", "quantity": 30, "date": "2026-08-10", "source": "manual"},
+        {"id": "sm_d4_sale", "product_id": "p4", "type": "sold", "quantity": 6, "date": "2026-08-18", "source": "sale_4"},
+
+        {"id": "sm_d5_init", "product_id": "p5", "type": "added", "quantity": 80, "date": "2026-08-10", "source": "manual"},
+        {"id": "sm_d5_sale", "product_id": "p5", "type": "sold", "quantity": 15, "date": "2026-08-19", "source": "sale_5"},
+
+        {"id": "sm_d6_init", "product_id": "p6", "type": "added", "quantity": 30, "date": "2026-08-10", "source": "manual"},
+        {"id": "sm_d6_sale", "product_id": "p6", "type": "sold", "quantity": 5, "date": "2026-08-20", "source": "sale_6"},
+
+        {"id": "sm_d7_init", "product_id": "p7", "type": "added", "quantity": 35, "date": "2026-08-10", "source": "manual"},
+        {"id": "sm_d7_sale", "product_id": "p7", "type": "sold", "quantity": 7, "date": "2026-08-21", "source": "sale_7"},
+
+        {"id": "sm_d8_init", "product_id": "p8", "type": "added", "quantity": 110, "date": "2026-08-10", "source": "manual"},
+        {"id": "sm_d8_sale", "product_id": "p8", "type": "sold", "quantity": 15, "date": "2026-08-22", "source": "sale_8"},
+
+        {"id": "sm_d9_init", "product_id": "p9", "type": "added", "quantity": 20, "date": "2026-08-10", "source": "manual"},
+        {"id": "sm_d9_sale", "product_id": "p9", "type": "sold", "quantity": 14, "date": "2026-08-22", "source": "sale_9"},
+
+        {"id": "sm_d10_init", "product_id": "p10", "type": "added", "quantity": 30, "date": "2026-08-10", "source": "manual"},
+        {"id": "sm_d10_sale", "product_id": "p10", "type": "sold", "quantity": 8, "date": "2026-08-22", "source": "sale_10"},
+
+        {"id": "sm_d11_init", "product_id": "p11", "type": "added", "quantity": 25, "date": "2026-08-10", "source": "manual"},
+        {"id": "sm_d11_sale", "product_id": "p11", "type": "sold", "quantity": 16, "date": "2026-08-22", "source": "sale_11"},
+
+        {"id": "sm_d12_init", "product_id": "p12", "type": "added", "quantity": 50, "date": "2026-08-10", "source": "manual"},
+        {"id": "sm_d12_sale", "product_id": "p12", "type": "sold", "quantity": 15, "date": "2026-08-22", "source": "sale_12"}
     ]
     for sm in movements:
         movements_col.insert_one(sm)
     print(f"Seeded {len(movements)} stock movements.")
 
     # 5. Seed Bills and Invoices
-    # Seed Bills (confirmed)
     bills = [
         {
             "id": "bill_1",
-            "date": "2026-07-01",
+            "date": "2026-08-10",
             "image_url": "/static/sample_receipt.png",
-            "vendor": "Waaree Energies India",
-            "extracted_items": [{"name": "Tier-1 Monocrystalline Solar Panel Pallet (40x 550W)", "qty": 15, "unit_price": 2800.0}],
-            "total": 42000.0,
+            "vendor": "Global Paper Co",
+            "extracted_items": [{"name": "Printer Paper A4", "qty": 30, "unit_price": 4.0}],
+            "total": 120.0,
             "status": "confirmed"
         },
         {
             "id": "bill_2",
-            "date": "2026-07-01",
+            "date": "2026-08-10",
             "image_url": "/static/sample_receipt.png",
-            "vendor": "Growatt New Energy",
-            "extracted_items": [{"name": "Premium Hybrid Solar Inverter (15kW Three-Phase)", "qty": 28, "unit_price": 1100.0}],
-            "total": 30800.0,
+            "vendor": "Apex Power",
+            "extracted_items": [{"name": "USB-C Cable", "qty": 50, "unit_price": 3.0}],
+            "total": 150.0,
             "status": "confirmed"
         }
     ]
@@ -152,24 +263,23 @@ def seed_db():
         bills_col.insert_one(b)
     print(f"Seeded {len(bills)} bills.")
 
-    # Seed Invoices
     invoices = [
         {
             "id": "inv_1",
             "bill_id": None,
-            "date": "2026-07-10",
-            "customer_name": "Apex Power Solutions",
-            "items": [{"name": "Tier-1 Monocrystalline Solar Panel Pallet (40x 550W)", "qty": 2, "price": 4500.0}],
-            "total": 9000.0,
+            "date": "2026-08-15",
+            "customer_name": "General Office Stores",
+            "items": [{"name": "Printer Paper A4", "qty": 12, "price": 6.5}],
+            "total": 78.0,
             "pdf_url": "/static/invoices/invoice_seed_1.pdf"
         },
         {
             "id": "inv_2",
             "bill_id": None,
-            "date": "2026-07-12",
-            "customer_name": "Greenfield Housing Society",
-            "items": [{"name": "Premium Hybrid Solar Inverter (15kW Three-Phase)", "qty": 3, "price": 1850.0}],
-            "total": 5550.0,
+            "date": "2026-08-17",
+            "customer_name": "City Tech Hub",
+            "items": [{"name": "USB-C Cable", "qty": 8, "price": 5.0}],
+            "total": 40.0,
             "pdf_url": "/static/invoices/invoice_seed_2.pdf"
         }
     ]
@@ -181,17 +291,29 @@ def seed_db():
     requests = [
         {
             "id": "sr_1",
-            "product_id": "p5",
-            "requested_qty": 20,
+            "product_id": "p2",
+            "requested_qty": 50,
             "requested_by": "Ravi Kumar",
             "status": "pending",
-            "date": "2026-07-14",
-            "note": "running low, customers asking"
+            "date": "2026-08-22",
+            "note": "running low, customer requests"
         }
     ]
     for r in requests:
         requests_col.insert_one(r)
     print(f"Seeded {len(requests)} stock requests.")
+
+    # 7. Seed Profile
+    profile = {
+        "id": "profile_active",
+        "email": "test@example.com",
+        "name": "Siddu",
+        "businessName": "BizPilot Solutions",
+        "businessType": "Wholesale & Distribution",
+        "currency": "INR"
+    }
+    profile_col.insert_one(profile)
+    print("Seeded active profile.")
     print("Database seeding completed successfully!")
 
 if __name__ == "__main__":

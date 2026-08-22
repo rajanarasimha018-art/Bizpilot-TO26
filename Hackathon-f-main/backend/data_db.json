@@ -2,38 +2,135 @@
   "products": [
     {
       "id": "p1",
-      "name": "Tier-1 Monocrystalline Solar Panel Pallet (40x 550W)",
-      "category": "Solar Panels",
-      "reorder_threshold": 5,
-      "unit_cost": 2800.0
+      "name": "Printer Paper A4",
+      "category": "Office Supplies",
+      "reorder_threshold": 30,
+      "unit_cost": 4.0,
+      "price": 6.5,
+      "sku": "PAP-A4-XYZ",
+      "description": "High-quality 80gsm white A4 printing paper.",
+      "supplier": "Global Paper Co"
     },
     {
       "id": "p2",
-      "name": "Premium Hybrid Solar Inverter (15kW Three-Phase)",
-      "category": "Inverters",
-      "reorder_threshold": 5,
-      "unit_cost": 1100.0
+      "name": "Ponds Powder",
+      "category": "Cosmetics",
+      "reorder_threshold": 10,
+      "unit_cost": 8.0,
+      "price": 12.0,
+      "sku": "PND-PWD-100",
+      "description": "Sandalwood talcum powder 100g.",
+      "supplier": "ABC Foods"
     },
     {
       "id": "p3",
-      "name": "High-Density Lithium Iron Phosphate (LiFePO4) Battery Pack (10kWh)",
-      "category": "Energy Storage",
-      "reorder_threshold": 10,
-      "unit_cost": 1600.0
+      "name": "USB-C Cable",
+      "category": "Electronics",
+      "reorder_threshold": 20,
+      "unit_cost": 3.0,
+      "price": 5.0,
+      "sku": "USB-C-3FT",
+      "description": "3ft fast charging braided USB-C cable.",
+      "supplier": "Apex Power"
     },
     {
       "id": "p4",
-      "name": "Heavy-Duty Aluminum Roof Mounting Racks (Set of 10 arrays)",
-      "category": "Mounting Systems",
+      "name": "Wireless Mouse",
+      "category": "Electronics",
       "reorder_threshold": 15,
-      "unit_cost": 220.0
+      "unit_cost": 12.0,
+      "price": 24.0,
+      "sku": "MSE-WRL-OPT",
+      "description": "Ergonomic 2.4GHz wireless optical mouse.",
+      "supplier": "Apex Power"
     },
     {
       "id": "p5",
-      "name": "Smart Net-Metering Power Gateway Controller",
-      "category": "Controllers",
-      "reorder_threshold": 10,
-      "unit_cost": 180.0
+      "name": "LED Bulb 12W",
+      "category": "Electronics",
+      "reorder_threshold": 25,
+      "unit_cost": 2.5,
+      "price": 4.5,
+      "sku": "LED-12W-WHT",
+      "description": "Energy-efficient warm white 12W LED bulb.",
+      "supplier": "Apex Power"
+    },
+    {
+      "id": "p6",
+      "name": "Notebook A5",
+      "category": "Office Supplies",
+      "reorder_threshold": 15,
+      "unit_cost": 2.0,
+      "price": 3.5,
+      "sku": "NTB-A5-RUL",
+      "description": "Ruled A5 notebook, 160 pages.",
+      "supplier": "Global Paper Co"
+    },
+    {
+      "id": "p7",
+      "name": "Keyboard",
+      "category": "Electronics",
+      "reorder_threshold": 15,
+      "unit_cost": 18.0,
+      "price": 30.0,
+      "sku": "KBD-USB-STD",
+      "description": "Standard full-size USB wired keyboard.",
+      "supplier": "Apex Power"
+    },
+    {
+      "id": "p8",
+      "name": "Ball Pen Pack",
+      "category": "Office Supplies",
+      "reorder_threshold": 30,
+      "unit_cost": 5.0,
+      "price": 8.0,
+      "sku": "PEN-BLU-10P",
+      "description": "Pack of 10 blue ink fine-point ball pens.",
+      "supplier": "ABC Foods"
+    },
+    {
+      "id": "p9",
+      "name": "Thermal Paper Roll",
+      "category": "Office Supplies",
+      "reorder_threshold": 15,
+      "unit_cost": 1.2,
+      "price": 2.0,
+      "sku": "THM-PR-3IN",
+      "description": "3-inch thermal POS receipt paper roll.",
+      "supplier": "Speedy Logistics"
+    },
+    {
+      "id": "p10",
+      "name": "Cleaning Spray",
+      "category": "Cleaning Utilities",
+      "reorder_threshold": 12,
+      "unit_cost": 3.5,
+      "price": 6.0,
+      "sku": "CLN-SPR-500",
+      "description": "Multi-surface disinfectant cleaning spray 500ml.",
+      "supplier": "Unilever Wholesale"
+    },
+    {
+      "id": "p11",
+      "name": "Power Adapter",
+      "category": "Electronics",
+      "reorder_threshold": 18,
+      "unit_cost": 8.0,
+      "price": 15.0,
+      "sku": "PWR-AD-20W",
+      "description": "20W USB-C PD fast charger wall adapter.",
+      "supplier": "Apex Power"
+    },
+    {
+      "id": "p12",
+      "name": "Packaging Boxes",
+      "category": "Packaging",
+      "reorder_threshold": 40,
+      "unit_cost": 0.8,
+      "price": 1.5,
+      "sku": "BOX-MED-BRN",
+      "description": "Medium corrugated brown shipping boxes.",
+      "supplier": "Unknown Supplier"
     }
   ],
   "workers": [
@@ -66,386 +163,84 @@
     {
       "id": "att_w1_0",
       "worker_id": "w1",
-      "date": "2026-07-01",
-      "status": "present",
-      "hours_worked": 8.0
-    },
-    {
-      "id": "att_w1_1",
-      "worker_id": "w1",
-      "date": "2026-07-02",
-      "status": "present",
-      "hours_worked": 8.0
-    },
-    {
-      "id": "att_w1_2",
-      "worker_id": "w1",
-      "date": "2026-07-03",
-      "status": "absent",
-      "hours_worked": 0.0
-    },
-    {
-      "id": "att_w1_3",
-      "worker_id": "w1",
-      "date": "2026-07-04",
-      "status": "present",
-      "hours_worked": 8.0
-    },
-    {
-      "id": "att_w1_4",
-      "worker_id": "w1",
-      "date": "2026-07-05",
-      "status": "present",
-      "hours_worked": 8.0
-    },
-    {
-      "id": "att_w1_5",
-      "worker_id": "w1",
-      "date": "2026-07-06",
-      "status": "present",
-      "hours_worked": 8.0
-    },
-    {
-      "id": "att_w1_6",
-      "worker_id": "w1",
-      "date": "2026-07-07",
-      "status": "absent",
-      "hours_worked": 0.0
-    },
-    {
-      "id": "att_w1_7",
-      "worker_id": "w1",
-      "date": "2026-07-08",
-      "status": "present",
-      "hours_worked": 8.0
-    },
-    {
-      "id": "att_w1_8",
-      "worker_id": "w1",
-      "date": "2026-07-09",
-      "status": "present",
-      "hours_worked": 8.0
-    },
-    {
-      "id": "att_w1_9",
-      "worker_id": "w1",
-      "date": "2026-07-10",
+      "date": "2026-08-01",
       "status": "present",
       "hours_worked": 8.0
     },
     {
       "id": "att_w2_0",
       "worker_id": "w2",
-      "date": "2026-07-01",
-      "status": "present",
-      "hours_worked": 8.0
-    },
-    {
-      "id": "att_w2_1",
-      "worker_id": "w2",
-      "date": "2026-07-02",
-      "status": "absent",
-      "hours_worked": 0.0
-    },
-    {
-      "id": "att_w2_2",
-      "worker_id": "w2",
-      "date": "2026-07-03",
-      "status": "present",
-      "hours_worked": 8.0
-    },
-    {
-      "id": "att_w2_3",
-      "worker_id": "w2",
-      "date": "2026-07-04",
-      "status": "present",
-      "hours_worked": 8.0
-    },
-    {
-      "id": "att_w2_4",
-      "worker_id": "w2",
-      "date": "2026-07-05",
-      "status": "present",
-      "hours_worked": 8.0
-    },
-    {
-      "id": "att_w2_5",
-      "worker_id": "w2",
-      "date": "2026-07-06",
-      "status": "present",
-      "hours_worked": 8.0
-    },
-    {
-      "id": "att_w2_6",
-      "worker_id": "w2",
-      "date": "2026-07-07",
-      "status": "present",
-      "hours_worked": 8.0
-    },
-    {
-      "id": "att_w2_7",
-      "worker_id": "w2",
-      "date": "2026-07-08",
-      "status": "absent",
-      "hours_worked": 0.0
-    },
-    {
-      "id": "att_w2_8",
-      "worker_id": "w2",
-      "date": "2026-07-09",
-      "status": "present",
-      "hours_worked": 8.0
-    },
-    {
-      "id": "att_w2_9",
-      "worker_id": "w2",
-      "date": "2026-07-10",
-      "status": "present",
-      "hours_worked": 8.0
-    },
-    {
-      "id": "att_w3_0",
-      "worker_id": "w3",
-      "date": "2026-07-01",
-      "status": "present",
-      "hours_worked": 8.0
-    },
-    {
-      "id": "att_w3_1",
-      "worker_id": "w3",
-      "date": "2026-07-02",
-      "status": "present",
-      "hours_worked": 8.0
-    },
-    {
-      "id": "att_w3_2",
-      "worker_id": "w3",
-      "date": "2026-07-03",
-      "status": "present",
-      "hours_worked": 8.0
-    },
-    {
-      "id": "att_w3_3",
-      "worker_id": "w3",
-      "date": "2026-07-04",
-      "status": "present",
-      "hours_worked": 8.0
-    },
-    {
-      "id": "att_w3_4",
-      "worker_id": "w3",
-      "date": "2026-07-05",
-      "status": "absent",
-      "hours_worked": 0.0
-    },
-    {
-      "id": "att_w3_5",
-      "worker_id": "w3",
-      "date": "2026-07-06",
-      "status": "present",
-      "hours_worked": 8.0
-    },
-    {
-      "id": "att_w3_6",
-      "worker_id": "w3",
-      "date": "2026-07-07",
-      "status": "present",
-      "hours_worked": 8.0
-    },
-    {
-      "id": "att_w3_7",
-      "worker_id": "w3",
-      "date": "2026-07-08",
-      "status": "present",
-      "hours_worked": 8.0
-    },
-    {
-      "id": "att_w3_8",
-      "worker_id": "w3",
-      "date": "2026-07-09",
-      "status": "present",
-      "hours_worked": 8.0
-    },
-    {
-      "id": "att_w3_9",
-      "worker_id": "w3",
-      "date": "2026-07-10",
-      "status": "present",
-      "hours_worked": 8.0
-    },
-    {
-      "id": "att_w4_0",
-      "worker_id": "w4",
-      "date": "2026-07-01",
-      "status": "present",
-      "hours_worked": 6.0
-    },
-    {
-      "id": "att_w4_1",
-      "worker_id": "w4",
-      "date": "2026-07-02",
-      "status": "absent",
-      "hours_worked": 0.0
-    },
-    {
-      "id": "att_w4_2",
-      "worker_id": "w4",
-      "date": "2026-07-03",
-      "status": "present",
-      "hours_worked": 6.0
-    },
-    {
-      "id": "att_w4_3",
-      "worker_id": "w4",
-      "date": "2026-07-04",
-      "status": "present",
-      "hours_worked": 6.0
-    },
-    {
-      "id": "att_w4_4",
-      "worker_id": "w4",
-      "date": "2026-07-05",
-      "status": "absent",
-      "hours_worked": 0.0
-    },
-    {
-      "id": "att_w4_5",
-      "worker_id": "w4",
-      "date": "2026-07-06",
-      "status": "present",
-      "hours_worked": 6.0
-    },
-    {
-      "id": "att_w4_6",
-      "worker_id": "w4",
-      "date": "2026-07-07",
-      "status": "present",
-      "hours_worked": 6.0
-    },
-    {
-      "id": "att_w4_7",
-      "worker_id": "w4",
-      "date": "2026-07-08",
-      "status": "absent",
-      "hours_worked": 0.0
-    },
-    {
-      "id": "att_w4_8",
-      "worker_id": "w4",
-      "date": "2026-07-09",
-      "status": "present",
-      "hours_worked": 6.0
-    },
-    {
-      "id": "att_w4_9",
-      "worker_id": "w4",
-      "date": "2026-07-10",
-      "status": "present",
-      "hours_worked": 6.0
-    },
-    {
-      "id": "att_w1_20260717",
-      "worker_id": "w1",
-      "date": "2026-07-17",
+      "date": "2026-08-01",
       "status": "present",
       "hours_worked": 8.0
     }
   ],
   "stock_movements": [
-    {
-      "id": "sm_init_p1",
-      "product_id": "p1",
-      "type": "added",
-      "quantity": 15,
-      "date": "2026-07-01",
-      "source": "manual"
-    },
-    {
-      "id": "sm_init_p2",
-      "product_id": "p2",
-      "type": "added",
-      "quantity": 28,
-      "date": "2026-07-01",
-      "source": "manual"
-    },
-    {
-      "id": "sm_init_p3",
-      "product_id": "p3",
-      "type": "added",
-      "quantity": 45,
-      "date": "2026-07-01",
-      "source": "manual"
-    },
-    {
-      "id": "sm_init_p4",
-      "product_id": "p4",
-      "type": "added",
-      "quantity": 65,
-      "date": "2026-07-01",
-      "source": "manual"
-    },
-    {
-      "id": "sm_init_p5",
-      "product_id": "p5",
-      "type": "added",
-      "quantity": 3,
-      "date": "2026-07-01",
-      "source": "manual"
-    },
-    {
-      "id": "sm_sale_p1",
-      "product_id": "p1",
-      "type": "sold",
-      "quantity": 2,
-      "date": "2026-07-10",
-      "source": "sale_1"
-    },
-    {
-      "id": "sm_sale_p2",
-      "product_id": "p2",
-      "type": "sold",
-      "quantity": 3,
-      "date": "2026-07-12",
-      "source": "sale_2"
-    },
-    {
-      "id": "sm_sale_p3",
-      "product_id": "p3",
-      "type": "sold",
-      "quantity": 5,
-      "date": "2026-07-14",
-      "source": "sale_3"
-    }
+    {"id": "sm_d1_init", "product_id": "p1", "type": "added", "quantity": 30, "date": "2026-08-10", "source": "manual"},
+    {"id": "sm_d1_sale", "product_id": "p1", "type": "sold", "quantity": 12, "date": "2026-08-15", "source": "sale_1"},
+
+    {"id": "sm_d2_init", "product_id": "p2", "type": "added", "quantity": 10, "date": "2026-08-10", "source": "manual"},
+    {"id": "sm_d2_sale", "product_id": "p2", "type": "sold", "quantity": 7, "date": "2026-08-16", "source": "sale_2"},
+
+    {"id": "sm_d3_init", "product_id": "p3", "type": "added", "quantity": 50, "date": "2026-08-10", "source": "manual"},
+    {"id": "sm_d3_sale", "product_id": "p3", "type": "sold", "quantity": 8, "date": "2026-08-17", "source": "sale_3"},
+
+    {"id": "sm_d4_init", "product_id": "p4", "type": "added", "quantity": 30, "date": "2026-08-10", "source": "manual"},
+    {"id": "sm_d4_sale", "product_id": "p4", "type": "sold", "quantity": 6, "date": "2026-08-18", "source": "sale_4"},
+
+    {"id": "sm_d5_init", "product_id": "p5", "type": "added", "quantity": 80, "date": "2026-08-10", "source": "manual"},
+    {"id": "sm_d5_sale", "product_id": "p5", "type": "sold", "quantity": 15, "date": "2026-08-19", "source": "sale_5"},
+
+    {"id": "sm_d6_init", "product_id": "p6", "type": "added", "quantity": 30, "date": "2026-08-10", "source": "manual"},
+    {"id": "sm_d6_sale", "product_id": "p6", "type": "sold", "quantity": 5, "date": "2026-08-20", "source": "sale_6"},
+
+    {"id": "sm_d7_init", "product_id": "p7", "type": "added", "quantity": 35, "date": "2026-08-10", "source": "manual"},
+    {"id": "sm_d7_sale", "product_id": "p7", "type": "sold", "quantity": 7, "date": "2026-08-21", "source": "sale_7"},
+
+    {"id": "sm_d8_init", "product_id": "p8", "type": "added", "quantity": 110, "date": "2026-08-10", "source": "manual"},
+    {"id": "sm_d8_sale", "product_id": "p8", "type": "sold", "quantity": 15, "date": "2026-08-22", "source": "sale_8"},
+
+    {"id": "sm_d9_init", "product_id": "p9", "type": "added", "quantity": 20, "date": "2026-08-10", "source": "manual"},
+    {"id": "sm_d9_sale", "product_id": "p9", "type": "sold", "quantity": 14, "date": "2026-08-22", "source": "sale_9"},
+
+    {"id": "sm_d10_init", "product_id": "p10", "type": "added", "quantity": 30, "date": "2026-08-10", "source": "manual"},
+    {"id": "sm_d10_sale", "product_id": "p10", "type": "sold", "quantity": 8, "date": "2026-08-22", "source": "sale_10"},
+
+    {"id": "sm_d11_init", "product_id": "p11", "type": "added", "quantity": 25, "date": "2026-08-10", "source": "manual"},
+    {"id": "sm_d11_sale", "product_id": "p11", "type": "sold", "quantity": 16, "date": "2026-08-22", "source": "sale_11"},
+
+    {"id": "sm_d12_init", "product_id": "p12", "type": "added", "quantity": 50, "date": "2026-08-10", "source": "manual"},
+    {"id": "sm_d12_sale", "product_id": "p12", "type": "sold", "quantity": 15, "date": "2026-08-22", "source": "sale_12"}
   ],
   "bills": [
     {
       "id": "bill_1",
-      "date": "2026-07-01",
+      "date": "2026-08-10",
       "image_url": "/static/sample_receipt.png",
-      "vendor": "Waaree Energies India",
+      "vendor": "Global Paper Co",
       "extracted_items": [
         {
-          "name": "Tier-1 Monocrystalline Solar Panel Pallet (40x 550W)",
-          "qty": 15,
-          "unit_price": 2800.0
+          "name": "Printer Paper A4",
+          "qty": 30,
+          "unit_price": 4.0
         }
       ],
-      "total": 42000.0,
+      "total": 120.0,
       "status": "confirmed"
     },
     {
       "id": "bill_2",
-      "date": "2026-07-01",
+      "date": "2026-08-10",
       "image_url": "/static/sample_receipt.png",
-      "vendor": "Growatt New Energy",
+      "vendor": "Apex Power",
       "extracted_items": [
         {
-          "name": "Premium Hybrid Solar Inverter (15kW Three-Phase)",
-          "qty": 28,
-          "unit_price": 1100.0
+          "name": "USB-C Cable",
+          "qty": 50,
+          "unit_price": 3.0
         }
       ],
-      "total": 30800.0,
+      "total": 150.0,
       "status": "confirmed"
     }
   ],
@@ -453,60 +248,51 @@
     {
       "id": "inv_1",
       "bill_id": null,
-      "date": "2026-07-10",
-      "customer_name": "Apex Power Solutions",
+      "date": "2026-08-15",
+      "customer_name": "General Office Stores",
       "items": [
         {
-          "name": "Tier-1 Monocrystalline Solar Panel Pallet (40x 550W)",
-          "qty": 2,
-          "price": 4500.0
+          "name": "Printer Paper A4",
+          "qty": 12,
+          "price": 6.5
         }
       ],
-      "total": 9000.0,
+      "total": 78.0,
       "pdf_url": "/static/invoices/invoice_seed_1.pdf"
     },
     {
       "id": "inv_2",
       "bill_id": null,
-      "date": "2026-07-12",
-      "customer_name": "Greenfield Housing Society",
+      "date": "2026-08-17",
+      "customer_name": "City Tech Hub",
       "items": [
         {
-          "name": "Premium Hybrid Solar Inverter (15kW Three-Phase)",
-          "qty": 3,
-          "price": 1850.0
+          "name": "USB-C Cable",
+          "qty": 8,
+          "price": 5.0
         }
       ],
-      "total": 5550.0,
+      "total": 40.0,
       "pdf_url": "/static/invoices/invoice_seed_2.pdf"
     }
   ],
   "stock_requests": [
     {
       "id": "sr_1",
-      "product_id": "p5",
-      "requested_qty": 20,
+      "product_id": "p2",
+      "requested_qty": 50,
       "requested_by": "Ravi Kumar",
       "status": "pending",
-      "date": "2026-07-14",
-      "note": "running low, customers asking"
-    },
-    {
-      "id": "sr_1787410863",
-      "product_id": "p5",
-      "requested_qty": 100,
-      "requested_by": "Test User",
-      "status": "pending",
       "date": "2026-08-22",
-      "note": "AI Recommended Restock via Email"
+      "note": "running low, customer requests"
     }
   ],
   "profile": [
     {
       "id": "profile_active",
       "email": "test@example.com",
-      "name": "Test User",
-      "businessName": "Test Business",
+      "name": "Siddu",
+      "businessName": "BizPilot Solutions",
       "businessType": "Wholesale & Distribution",
       "currency": "INR"
     }

@@ -61,6 +61,269 @@ export default function App() {
         localStorage.removeItem("bizpilot_profile");
       });
   }, []);
+  const loadFallbackData = () => {
+    // 1. Products
+    const savedProducts = localStorage.getItem("bizpilot_products_fallback");
+    if (savedProducts) {
+      setProducts(JSON.parse(savedProducts));
+    } else {
+      const initialProducts = [
+        {
+          id: "p1",
+          name: "Printer Paper A4",
+          category: "Office Supplies",
+          quantity: 18,
+          currentStock: 18,
+          minStock: 30,
+          reorderThreshold: 30,
+          cost: 4.0,
+          unitCost: 4.0,
+          price: 6.5,
+          sku: "PAP-A4-XYZ",
+          description: "High-quality 80gsm white A4 printing paper.",
+          supplier: "Global Paper Co"
+        },
+        {
+          id: "p2",
+          name: "Ponds Powder",
+          category: "Cosmetics",
+          quantity: 3,
+          currentStock: 3,
+          minStock: 10,
+          reorderThreshold: 10,
+          cost: 8.0,
+          unitCost: 8.0,
+          price: 12.0,
+          sku: "PND-PWD-100",
+          description: "Sandalwood talcum powder 100g.",
+          supplier: "ABC Foods"
+        },
+        {
+          id: "p3",
+          name: "USB-C Cable",
+          category: "Electronics",
+          quantity: 42,
+          currentStock: 42,
+          minStock: 20,
+          reorderThreshold: 20,
+          cost: 3.0,
+          unitCost: 3.0,
+          price: 5.0,
+          sku: "USB-C-3FT",
+          description: "3ft fast charging braided USB-C cable.",
+          supplier: "Apex Power"
+        },
+        {
+          id: "p4",
+          name: "Wireless Mouse",
+          category: "Electronics",
+          quantity: 24,
+          currentStock: 24,
+          minStock: 15,
+          reorderThreshold: 15,
+          cost: 12.0,
+          unitCost: 12.0,
+          price: 24.0,
+          sku: "MSE-WRL-OPT",
+          description: "Ergonomic 2.4GHz wireless optical mouse.",
+          supplier: "Apex Power"
+        },
+        {
+          id: "p5",
+          name: "LED Bulb 12W",
+          category: "Electronics",
+          quantity: 65,
+          currentStock: 65,
+          minStock: 25,
+          reorderThreshold: 25,
+          cost: 2.5,
+          unitCost: 2.5,
+          price: 4.5,
+          sku: "LED-12W-WHT",
+          description: "Energy-efficient warm white 12W LED bulb.",
+          supplier: "Apex Power"
+        },
+        {
+          id: "p6",
+          name: "Notebook A5",
+          category: "Office Supplies",
+          quantity: 25,
+          currentStock: 25,
+          minStock: 15,
+          reorderThreshold: 15,
+          cost: 2.0,
+          unitCost: 2.0,
+          price: 3.5,
+          sku: "NTB-A5-RUL",
+          description: "Ruled A5 notebook, 160 pages.",
+          supplier: "Global Paper Co"
+        },
+        {
+          id: "p7",
+          name: "Keyboard",
+          category: "Electronics",
+          quantity: 28,
+          currentStock: 28,
+          minStock: 15,
+          reorderThreshold: 15,
+          cost: 18.0,
+          unitCost: 18.0,
+          price: 30.0,
+          sku: "KBD-USB-STD",
+          description: "Standard full-size USB wired keyboard.",
+          supplier: "Apex Power"
+        },
+        {
+          id: "p8",
+          name: "Ball Pen Pack",
+          category: "Office Supplies",
+          quantity: 95,
+          currentStock: 95,
+          minStock: 30,
+          reorderThreshold: 30,
+          cost: 5.0,
+          unitCost: 5.0,
+          price: 8.0,
+          sku: "PEN-BLU-10P",
+          description: "Pack of 10 blue ink fine-point ball pens.",
+          supplier: "ABC Foods"
+        },
+        {
+          id: "p9",
+          name: "Thermal Paper Roll",
+          category: "Office Supplies",
+          quantity: 6,
+          currentStock: 6,
+          minStock: 15,
+          reorderThreshold: 15,
+          cost: 1.2,
+          unitCost: 1.2,
+          price: 2.0,
+          sku: "THM-PR-3IN",
+          description: "3-inch thermal POS receipt paper roll.",
+          supplier: "Speedy Logistics"
+        },
+        {
+          id: "p10",
+          name: "Cleaning Spray",
+          category: "Cleaning Utilities",
+          quantity: 22,
+          currentStock: 22,
+          minStock: 12,
+          reorderThreshold: 12,
+          cost: 3.5,
+          unitCost: 3.5,
+          price: 6.0,
+          sku: "CLN-SPR-500",
+          description: "Multi-surface disinfectant cleaning spray 500ml.",
+          supplier: "Unilever Wholesale"
+        },
+        {
+          id: "p11",
+          name: "Power Adapter",
+          category: "Electronics",
+          quantity: 9,
+          currentStock: 9,
+          minStock: 18,
+          reorderThreshold: 18,
+          cost: 8.0,
+          unitCost: 8.0,
+          price: 15.0,
+          sku: "PWR-AD-20W",
+          description: "20W USB-C PD fast charger wall adapter.",
+          supplier: "Apex Power"
+        },
+        {
+          id: "p12",
+          name: "Packaging Boxes",
+          category: "Packaging",
+          quantity: 35,
+          currentStock: 35,
+          minStock: 40,
+          reorderThreshold: 40,
+          cost: 0.8,
+          unitCost: 0.8,
+          price: 1.5,
+          sku: "BOX-MED-BRN",
+          description: "Medium corrugated brown shipping boxes.",
+          supplier: "Unknown Supplier"
+        }
+      ];
+      setProducts(initialProducts);
+      localStorage.setItem("bizpilot_products_fallback", JSON.stringify(initialProducts));
+    }
+
+    // 2. Invoices
+    const savedInvoices = localStorage.getItem("bizpilot_invoices_fallback");
+    if (savedInvoices) {
+      setInvoices(JSON.parse(savedInvoices));
+    } else {
+      const initialInvoices = [
+        {
+          id: "inv_1",
+          invoiceNumber: "INV-20260815-001",
+          clientName: "General Office Stores",
+          issueDate: "2026-08-15",
+          total: 78.0,
+          status: "paid"
+        },
+        {
+          id: "inv_2",
+          invoiceNumber: "INV-20260817-002",
+          clientName: "City Tech Hub",
+          issueDate: "2026-08-17",
+          total: 40.0,
+          status: "unpaid"
+        }
+      ];
+      setInvoices(initialInvoices);
+      localStorage.setItem("bizpilot_invoices_fallback", JSON.stringify(initialInvoices));
+    }
+
+    // 3. Transactions
+    const savedTransactions = localStorage.getItem("bizpilot_transactions_fallback");
+    if (savedTransactions) {
+      setTransactions(JSON.parse(savedTransactions));
+    } else {
+      const initialTransactions = [
+        {
+          id: "tx_1",
+          date: "2026-08-15",
+          type: "revenue",
+          category: "Sales",
+          amount: 78.0,
+          description: "Invoice Payment: General Office Stores"
+        },
+        {
+          id: "tx_2",
+          date: "2026-08-17",
+          type: "revenue",
+          category: "Sales",
+          amount: 40.0,
+          description: "Invoice Payment: City Tech Hub"
+        },
+        {
+          id: "tx_3",
+          date: "2026-08-10",
+          type: "expense",
+          category: "Materials",
+          amount: 120.0,
+          description: "Bill Confirmed: Global Paper Co"
+        },
+        {
+          id: "tx_4",
+          date: "2026-08-10",
+          type: "expense",
+          category: "Materials",
+          amount: 150.0,
+          description: "Bill Confirmed: Apex Power"
+        }
+      ];
+      setTransactions(initialTransactions);
+      localStorage.setItem("bizpilot_transactions_fallback", JSON.stringify(initialTransactions));
+    }
+  };
+
   const refreshData = async () => {
     try {
       const [pRes, iRes, tRes, rRes] = await Promise.all([
@@ -69,12 +332,27 @@ export default function App() {
         fetch("/api/transactions"),
         fetch("/api/reports")
       ]);
-      if (pRes.ok) setProducts(await pRes.json());
-      if (iRes.ok) setInvoices(await iRes.json());
-      if (tRes.ok) setTransactions(await tRes.json());
+      if (pRes.ok) {
+        const pData = await pRes.json();
+        setProducts(pData);
+        localStorage.setItem("bizpilot_products_fallback", JSON.stringify(pData));
+      } else {
+        loadFallbackData();
+      }
+      if (iRes.ok) {
+        const iData = await iRes.json();
+        setInvoices(iData);
+        localStorage.setItem("bizpilot_invoices_fallback", JSON.stringify(iData));
+      }
+      if (tRes.ok) {
+        const tData = await tRes.json();
+        setTransactions(tData);
+        localStorage.setItem("bizpilot_transactions_fallback", JSON.stringify(tData));
+      }
       if (rRes.ok) setReports(await rRes.json());
     } catch (err) {
       console.warn("Express backend connection not active yet. Fallback to client state memory.", err);
+      loadFallbackData();
     }
   };
 
@@ -110,7 +388,11 @@ export default function App() {
       ...prodPayload,
       id: "prod_" + Date.now()
     };
-    setProducts((prev) => [newProduct, ...prev]);
+    setProducts((prev) => {
+      const updated = [newProduct, ...prev];
+      localStorage.setItem("bizpilot_products_fallback", JSON.stringify(updated));
+      return updated;
+    });
     try {
       await fetch("/api/inventory", {
         method: "POST",
@@ -122,7 +404,11 @@ export default function App() {
     }
   };
   const handleEditProduct = async (id, partial) => {
-    setProducts((prev) => prev.map((p) => p.id === id ? { ...p, ...partial } : p));
+    setProducts((prev) => {
+      const updated = prev.map((p) => p.id === id ? { ...p, ...partial } : p);
+      localStorage.setItem("bizpilot_products_fallback", JSON.stringify(updated));
+      return updated;
+    });
     try {
       await fetch(`/api/inventory/${id}`, {
         method: "PUT",
@@ -134,7 +420,11 @@ export default function App() {
     }
   };
   const handleDeleteProduct = async (id) => {
-    setProducts((prev) => prev.filter((p) => p.id !== id));
+    setProducts((prev) => {
+      const updated = prev.filter((p) => p.id !== id);
+      localStorage.setItem("bizpilot_products_fallback", JSON.stringify(updated));
+      return updated;
+    });
     try {
       await fetch(`/api/inventory/${id}`, {
         method: "DELETE"

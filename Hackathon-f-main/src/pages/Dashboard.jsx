@@ -933,26 +933,26 @@ export default function Dashboard({
     }).reverse();
 
     const baseline = [
-      { id: "base_rev_1", date: dates[0], type: "revenue", amount: 110000, description: "Bulk Solar Panel Wholesale Sales", category: "Solar equipment" },
-      { id: "base_exp_1", date: dates[0], type: "expense", amount: 82000, description: "Raw Silicon procurement payout", category: "Wages & Materials" },
+      { id: "base_rev_1", date: dates[0], type: "revenue", amount: 75000, description: "Bulk Printer Paper and Notebooks delivery", category: "Office Supplies" },
+      { id: "base_exp_1", date: dates[0], type: "expense", amount: 55000, description: "Paper and stationary raw material wholesale restock", category: "Wages & Materials" },
       
-      { id: "base_rev_2", date: dates[1], type: "revenue", amount: 115000, description: "Inverter Fleet retail shipment", category: "Solar equipment" },
-      { id: "base_exp_2", date: dates[1], type: "expense", amount: 85000, description: "Warehouse storage operations fee", category: "Rent & Utilities" },
+      { id: "base_rev_2", date: dates[1], type: "revenue", amount: 82000, description: "USB-C Cable and Adapter wholesale supply", category: "Electronics" },
+      { id: "base_exp_2", date: dates[1], type: "expense", amount: 60000, description: "Electronic units import import fee", category: "Wages & Materials" },
       
-      { id: "base_rev_3", date: dates[2], type: "revenue", amount: 125000, description: "Residential Grid installation order", category: "Services" },
-      { id: "base_exp_3", date: dates[2], type: "expense", amount: 90000, description: "Logistics shipping transit settle", category: "Transport" },
+      { id: "base_rev_3", date: dates[2], type: "revenue", amount: 68000, description: "Talcum powder cosmetics retail stockist delivery", category: "Cosmetics" },
+      { id: "base_exp_3", date: dates[2], type: "expense", amount: 48000, description: "Logistics delivery and shipping fleet settlement", category: "Transport" },
       
-      { id: "base_rev_4", date: dates[3], type: "revenue", amount: 105000, description: "Commercial Microgrid consult fee", category: "Services" },
-      { id: "base_exp_4", date: dates[3], type: "expense", amount: 78000, description: "Contractor installer day wages", category: "Wages & Materials" },
+      { id: "base_rev_4", date: dates[3], type: "revenue", amount: 79000, description: "LED Bulb 12W commercial lighting contract", category: "Electronics" },
+      { id: "base_exp_4", date: dates[3], type: "expense", amount: 58000, description: "Daily wages for packaging workers and handlers", category: "Wages & Materials" },
       
-      { id: "base_rev_5", date: dates[4], type: "revenue", amount: 130000, description: "Lithium Storage battery supply order", category: "Solar equipment" },
-      { id: "base_exp_5", date: dates[4], type: "expense", amount: 92000, description: "Biometric security operations fee", category: "Rent & Utilities" },
+      { id: "base_rev_5", date: dates[4], type: "revenue", amount: 85000, description: "Wireless keyboard and mouse bulk sales", category: "Electronics" },
+      { id: "base_exp_5", date: dates[4], type: "expense", amount: 62000, description: "Warehouse facility rental and utilities", category: "Rent & Utilities" },
       
-      { id: "base_rev_6", date: dates[5], type: "revenue", amount: 120000, description: "Hybrid Inverters batch wholesales", category: "Solar equipment" },
-      { id: "base_exp_6", date: dates[5], type: "expense", amount: 80000, description: "Corporate office utility settle", category: "Rent & Utilities" },
+      { id: "base_rev_6", date: dates[5], type: "revenue", amount: 71000, description: "Thermal POS paper roll wholesale batch", category: "Office Supplies" },
+      { id: "base_exp_6", date: dates[5], type: "expense", amount: 50000, description: "Supplier payout for cleaning sprays and utilities", category: "Rent & Utilities" },
       
-      { id: "base_rev_7", date: dates[6], type: "revenue", amount: 140000, description: "Solar Array mounting racks installation", category: "Services" },
-      { id: "base_exp_7", date: dates[6], type: "expense", amount: 85000, description: "Cloud API and Gemini servers billing", category: "Services" }
+      { id: "base_rev_7", date: dates[6], type: "revenue", amount: 75000, description: "Packaging boxes custom printing order", category: "Packaging" },
+      { id: "base_exp_7", date: dates[6], type: "expense", amount: 62000, description: "Cloud servers and billing subscription", category: "Services" }
     ];
 
     return [...transactions.slice().reverse(), ...baseline];
@@ -963,18 +963,18 @@ export default function Dashboard({
       {
         id: "base_inv_unpaid_1",
         date: new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString().split("T")[0],
-        customer_name: "Apex Power Solutions",
+        customer_name: "City Office Supplies",
         status: "unpaid",
-        total: 48000,
-        items: [{ name: "Premium Hybrid Solar Inverter (15kW)", qty: 2, price: 24000, total: 48000 }]
+        total: 32000,
+        items: [{ name: "Printer Paper A4", qty: 5000, price: 6.4, total: 32000 }]
       },
       {
         id: "base_inv_unpaid_2",
         date: new Date(Date.now() - 5 * 24 * 3600 * 1000).toISOString().split("T")[0],
-        customer_name: "Greenfield Housing Society",
+        customer_name: "Apex Tech Distributors",
         status: "unpaid",
-        total: 36000,
-        items: [{ name: "High-Density Lithium Iron Phosphate Battery Pack", qty: 1, price: 36000, total: 36000 }]
+        total: 18000,
+        items: [{ name: "USB-C Cable", qty: 3600, price: 5.0, total: 18000 }]
       }
     ];
 
