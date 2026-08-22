@@ -337,6 +337,11 @@ export default function Inventory({ products, user, onAddProduct, onEditProduct,
     }, 4500);
   };
 
+  const [tempSupplierName, setTempSupplierName] = useState("");
+  const [tempSupplierEmail, setTempSupplierEmail] = useState("");
+  const [tempSupplierPhone, setTempSupplierPhone] = useState("");
+  const [isEditingSupplier, setIsEditingSupplier] = useState(false);
+
   const demoSuppliers = {
     "ABC Foods": {
       name: "ABC Foods Supply",
@@ -361,15 +366,30 @@ export default function Inventory({ products, user, onAddProduct, onEditProduct,
   };
 
   const getSupplierDetails = (supplierName) => {
-    const name = supplierName || "Default Supplier";
+    const name = supplierName || "";
+    if (!name || name === "Unknown Supplier" || name === "Local supplier") {
+      return {
+        name: name || "Unknown Supplier",
+        email: "",
+        phone: ""
+      };
+    }
+
+    // Check localStorage first
+    const customSuppliers = JSON.parse(localStorage.getItem("bizpilot_custom_suppliers") || "{}");
+    if (customSuppliers[name]) {
+      return customSuppliers[name];
+    }
+
     if (demoSuppliers[name]) {
       return demoSuppliers[name];
     }
-    const slug = name.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+    // Do NOT generate fake email or phone numbers.
     return {
       name: name,
-      email: `orders@${slug || "supplier"}.com`,
-      phone: "+919900990099"
+      email: "",
+      phone: ""
     };
   };
 
@@ -377,15 +397,64 @@ export default function Inventory({ products, user, onAddProduct, onEditProduct,
   const [selectedRestockProduct, setSelectedRestockProduct] = useState(null);
   const [recommendedQty, setRecommendedQty] = useState(100);
 
-  const handleRequestRestock = (product, recommendedAmount = 100) => {
+  useEffect(() => {
+    if (selectedRestockProduct) {
+      const info = getSupplierDetails(selectedRestockProduct.supplier);
+      setTempSupplierName(info.name || "");
+      setTempSupplierEmail(info.email || "");
+      setTempSupplierPhone(info.phone || "");
+    } else {
+      setIsEditingSupplier(false);
+    }
+  }, [selectedRestockProduct]);
+
+  const handleRequestRestock = (product, recommendedAmount = null) => {
     setSelectedRestockProduct(product);
-    setRecommendedQty(recommendedAmount);
+    const qty = recommendedAmount !== null ? recommendedAmount : (product.minStock ? Math.max(50, product.minStock * 5) : 100);
+    setRecommendedQty(qty);
     setRestockModalOpen(true);
   };
 
   const initiateRestock = async (product, qty, communicationType) => {
+    const requestId = `req_${Date.now()}`;
+    const timestamp = new Date().toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+    const dateString = new Date().toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    const fullTime = `${dateString} ${timestamp}`;
+    
+    const activeRestock = {
+      id: requestId,
+      productId: product.id,
+      productName: product.name,
+      qty: qty,
+      dealer: product.supplier || "Local Supplier",
+      status: "Request Initiated",
+      communication: `${communicationType} Draft Created`,
+      timestamp: fullTime
+    };
+    
+    const restocks = JSON.parse(localStorage.getItem("bizpilot_active_restocks") || "{}");
+    restocks[product.id] = activeRestock;
+    localStorage.setItem("bizpilot_active_restocks", JSON.stringify(restocks));
+    setActiveRestocks(restocks);
+    
+    const auditLogs = JSON.parse(localStorage.getItem("bizpilot_audit_trail") || "[]");
+    const newLogs = [
+      {
+        time: timestamp,
+        type: "AI detected low stock",
+        message: `${product.name}: ${qty} units recommended`
+      },
+      {
+        time: timestamp,
+        type: "Restock request initiated",
+        message: `Dealer: ${product.supplier || "Local Supplier"} | Comm: ${communicationType}`
+      },
+      ...auditLogs
+    ];
+    localStorage.setItem("bizpilot_audit_trail", JSON.stringify(newLogs));
+    
     try {
-      const res = await fetch("/api/stock-requests", {
+      await fetch("/api/stock-requests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -395,53 +464,16 @@ export default function Inventory({ products, user, onAddProduct, onEditProduct,
           note: `AI Recommended Restock via ${communicationType}`
         })
       });
-      
-      if (res.ok) {
-        const data = await res.json();
-        const requestId = data.request_id;
-        
-        const timestamp = new Date().toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
-        const dateString = new Date().toLocaleDateString(undefined, { month: "short", day: "numeric" });
-        const fullTime = `${dateString} ${timestamp}`;
-        
-        const activeRestock = {
-          id: requestId,
-          productId: product.id,
-          productName: product.name,
-          qty: qty,
-          dealer: product.supplier || "Local Supplier",
-          status: "Request Initiated",
-          communication: `${communicationType} Draft Created`,
-          timestamp: fullTime
-        };
-        
-        const restocks = JSON.parse(localStorage.getItem("bizpilot_active_restocks") || "{}");
-        restocks[product.id] = activeRestock;
-        localStorage.setItem("bizpilot_active_restocks", JSON.stringify(restocks));
-        setActiveRestocks(restocks);
-        
-        const auditLogs = JSON.parse(localStorage.getItem("bizpilot_audit_trail") || "[]");
-        const newLogs = [
-          {
-            time: timestamp,
-            type: "AI detected low stock",
-            message: `${product.name}: ${qty} units recommended`
-          },
-          {
-            time: timestamp,
-            type: "Restock request initiated",
-            message: `Dealer: ${product.supplier || "Local Supplier"} | Comm: ${communicationType}`
-          },
-          ...auditLogs
-        ];
-        localStorage.setItem("bizpilot_audit_trail", JSON.stringify(newLogs));
-        
-        if (onRefreshData) {
-          await onRefreshData();
-        }
-      }
     } catch (err) {
-      console.error("Failed to initiate restock in backend:", err);
+      console.warn("Backend restock request sync failed (offline demo mode fallback):", err);
+    }
+
+    if (onRefreshData) {
+      try {
+        await onRefreshData();
+      } catch (e) {
+        console.warn("Data refresh failed:", e);
+      }
     }
   };
 
@@ -486,42 +518,53 @@ export default function Inventory({ products, user, onAddProduct, onEditProduct,
   const handleDraftEmail = async () => {
     if (!selectedRestockProduct) return;
     const supplierInfo = getSupplierDetails(selectedRestockProduct.supplier);
-    const subject = encodeURIComponent(`Restock Request — ${selectedRestockProduct.name} × ${recommendedQty}`);
+    if (!supplierInfo.email) {
+      triggerToast("Supplier email is missing. Please configure it first.");
+      return;
+    }
+    const subject = encodeURIComponent(`Restock Request – ${selectedRestockProduct.name}`);
     const body = encodeURIComponent(
-`Dear ${supplierInfo.name},
+`Hello ${supplierInfo.name},
 
-We would like to request ${recommendedQty} units of ${selectedRestockProduct.name}.
+We would like to request a restock for the following product:
 
-Please confirm:
-- Availability
-- Unit price
-- Expected delivery date
+Product: ${selectedRestockProduct.name}
+SKU: ${selectedRestockProduct.sku || "N/A"}
+Current Stock: ${selectedRestockProduct.quantity || 0} units
+Requested Quantity: ${recommendedQty} units
 
-Thank you,
-${user?.businessName || "BizPilot Client"}
-Powered by BizPilot`
+Please confirm availability and expected delivery date.
+
+Regards,
+BizPilot Procurement Team`
     );
     const mailtoUrl = `mailto:${supplierInfo.email}?subject=${subject}&body=${body}`;
-    window.open(mailtoUrl, "_self");
+    window.location.href = mailtoUrl;
     
     await initiateRestock(selectedRestockProduct, recommendedQty, "Email");
     
     setRestockModalOpen(false);
-    triggerToast(`Email draft opened for ${supplierInfo.name}`);
+    triggerToast("Restock email draft opened.");
   };
 
   const handleDraftWhatsApp = async () => {
     if (!selectedRestockProduct) return;
     const supplierInfo = getSupplierDetails(selectedRestockProduct.supplier);
+    if (!supplierInfo.phone) {
+      triggerToast("Supplier phone is missing. Please configure it first.");
+      return;
+    }
     const text = encodeURIComponent(
 `Hello ${supplierInfo.name},
+BizPilot would like to request a restock:
 
-BizPilot is requesting ${recommendedQty} units of ${selectedRestockProduct.name} for ${user?.businessName || "our business"}.
+Product: ${selectedRestockProduct.name}
+SKU: ${selectedRestockProduct.sku || "N/A"}
+Current Stock: ${selectedRestockProduct.quantity || 0} units
+Requested Quantity: ${recommendedQty} units
 
-Please confirm availability, price, and expected delivery date.
-
-Thank you,
-BizPilot`
+Please confirm availability and delivery timeline.
+Thank you.`
     );
     const cleanedPhone = supplierInfo.phone.replace(/[^0-9+]/g, "");
     const whatsappUrl = `https://wa.me/${cleanedPhone}?text=${text}`;
@@ -530,7 +573,42 @@ BizPilot`
     await initiateRestock(selectedRestockProduct, recommendedQty, "WhatsApp");
     
     setRestockModalOpen(false);
-    triggerToast(`WhatsApp message prepared for ${supplierInfo.name}`);
+    triggerToast("WhatsApp restock message opened.");
+  };
+
+  const handleSaveSupplierDetails = async () => {
+    const name = tempSupplierName.trim();
+    if (!name) {
+      triggerToast("Supplier name cannot be empty.");
+      return;
+    }
+
+    const customSuppliers = JSON.parse(localStorage.getItem("bizpilot_custom_suppliers") || "{}");
+    customSuppliers[name] = {
+      name: name,
+      email: tempSupplierEmail.trim(),
+      phone: tempSupplierPhone.trim()
+    };
+    localStorage.setItem("bizpilot_custom_suppliers", JSON.stringify(customSuppliers));
+
+    // Update the product's supplier name if it was changed
+    if (selectedRestockProduct.supplier !== name) {
+      try {
+        await onEditProduct(selectedRestockProduct.id, {
+          ...selectedRestockProduct,
+          supplier: name
+        });
+        setSelectedRestockProduct(prev => ({
+          ...prev,
+          supplier: name
+        }));
+      } catch (err) {
+        console.error("Failed to update product supplier name:", err);
+      }
+    }
+
+    setIsEditingSupplier(false);
+    triggerToast(`Supplier details updated for "${name}".`);
   };
   const [scanSuccessFlash, setScanSuccessFlash] = useState(false);
   const [scanHistory, setScanHistory] = useState([
@@ -1308,31 +1386,35 @@ BizPilot`
                         <div className="flex items-center justify-center gap-2">
                           {isLow && !activeRestocks[p.id] && (
                             <button
-                              onClick={() => handleRequestRestock(p, 100)}
-                              className="p-1.5 bg-white hover:bg-amber-50 border border-gray-250 hover:border-amber-200 text-amber-600 rounded-md transition-colors cursor-pointer shadow-sm"
+                              onClick={() => handleRequestRestock(p)}
+                              className="px-2 py-1 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-705 hover:text-amber-800 text-[10px] font-bold rounded-lg cursor-pointer shadow-2xs transition-all flex items-center gap-1 shrink-0"
                               title="Request Restock"
                             >
-                              <RefreshCw className="w-3.5 h-3.5 animate-spin-hover" />
+                              <RefreshCw className="w-3 h-3 animate-spin-hover" />
+                              <span>Request Restock</span>
                             </button>
                           )}
                           {activeRestocks[p.id] && activeRestocks[p.id].status === "Request Initiated" && (
                             <button
                               onClick={() => handleMarkReceived(activeRestocks[p.id])}
-                              className="p-1.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-250 hover:border-emerald-300 text-emerald-700 rounded-md transition-colors cursor-pointer shadow-sm"
+                              className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 border border-emerald-250 hover:border-emerald-300 text-emerald-700 rounded-lg transition-colors cursor-pointer shadow-sm flex items-center gap-1 shrink-0 text-[10px] font-bold"
                               title="Mark as Received"
                             >
-                              <Check className="w-3.5 h-3.5" />
+                              <Check className="w-3 h-3 font-bold" />
+                              <span>Mark Received</span>
                             </button>
                           )}
                           <button
                             onClick={() => handleOpenEditModal(p)}
                             className="p-1.5 bg-white hover:bg-gray-50 border border-gray-250 text-gray-450 hover:text-teal-700 rounded-md transition-colors cursor-pointer shadow-sm"
+                            title="Edit"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={() => onDeleteProduct(p.id)}
                             className="p-1.5 bg-white hover:bg-red-50 border border-gray-250 hover:border-red-200 text-gray-450 hover:text-red-650 rounded-md transition-colors cursor-pointer shadow-sm"
+                            title="Delete"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -1655,28 +1737,111 @@ BizPilot`
                 </button>
               </div>
 
-              <div className="bg-gray-50 border border-gray-150 p-4 rounded-xl space-y-2 text-xs">
+              <div className="bg-gray-50 border border-gray-150 p-4 rounded-xl space-y-2.5 text-xs text-left">
                 <div className="flex justify-between">
                   <span className="text-gray-550 font-medium">Product:</span>
                   <span className="text-gray-900 font-bold">{selectedRestockProduct.name}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-550 font-medium">Recommended Qty:</span>
-                  <span className="text-teal-700 font-bold font-mono">{recommendedQty} Units</span>
+                  <span className="text-gray-550 font-medium">Current Stock:</span>
+                  <span className="text-gray-900 font-bold font-mono">{selectedRestockProduct.quantity || 0} Units</span>
                 </div>
-                <div className="flex justify-between border-t border-gray-250/50 pt-2 mt-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-550 font-medium">Recommended Qty:</span>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="number"
+                      value={recommendedQty}
+                      onChange={(e) => setRecommendedQty(Math.max(1, Number(e.target.value)))}
+                      className="w-16 bg-white border border-gray-250 rounded py-0.5 px-1.5 text-xs text-right font-mono font-bold text-teal-700 focus:border-teal-500 focus:outline-none"
+                    />
+                    <span className="text-teal-700 font-bold font-mono">Units</span>
+                  </div>
+                </div>
+                <div className="flex justify-between border-t border-gray-250/50 pt-2.5 mt-2.5">
                   <span className="text-gray-550 font-medium">Dealer Name:</span>
-                  <span className="text-gray-900 font-semibold">{supplierInfo.name}</span>
+                  <span className="text-gray-900 font-semibold">{supplierInfo.name || <span className="text-gray-400 italic">None</span>}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-550 font-medium">Dealer Email:</span>
-                  <span className="text-gray-800 font-mono">{supplierInfo.email}</span>
+                  {supplierInfo.email ? (
+                    <span className="text-gray-800 font-mono">{supplierInfo.email}</span>
+                  ) : (
+                    <span className="text-rose-500 font-bold italic">Missing Email</span>
+                  )}
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-550 font-medium">Dealer Phone:</span>
-                  <span className="text-gray-800 font-mono">{supplierInfo.phone}</span>
+                  {supplierInfo.phone ? (
+                    <span className="text-gray-800 font-mono">{supplierInfo.phone}</span>
+                  ) : (
+                    <span className="text-rose-500 font-bold italic">Missing Phone</span>
+                  )}
+                </div>
+                <div className="pt-2 border-t border-gray-250/50 flex justify-end">
+                  <button
+                    onClick={() => setIsEditingSupplier(true)}
+                    className="text-teal-750 hover:text-teal-900 font-bold text-[10px] cursor-pointer flex items-center gap-1"
+                  >
+                    <span>✎</span>
+                    <span>{(!supplierInfo.email || !supplierInfo.phone) ? "Add Supplier Contact Info" : "Edit Supplier Contact Info"}</span>
+                  </button>
                 </div>
               </div>
+
+              {/* Editing Supplier Info form */}
+              {isEditingSupplier && (
+                <div className="border border-gray-200 p-4 rounded-xl space-y-3 bg-white shadow-inner animate-fade-in text-left">
+                  <div className="flex justify-between items-center border-b border-gray-100 pb-1.5">
+                    <h4 className="font-bold text-xs text-gray-800">Configure Supplier Contact</h4>
+                    <span className="text-[9px] font-mono text-gray-400">Updates saved locally</span>
+                  </div>
+                  <div>
+                    <label className="block text-[9px] uppercase font-bold text-gray-400 mb-1">Supplier/Dealer Name</label>
+                    <input
+                      type="text"
+                      value={tempSupplierName}
+                      onChange={(e) => setTempSupplierName(e.target.value)}
+                      className="w-full bg-transparent border border-gray-250 rounded-lg py-1.5 px-3 text-xs focus:border-teal-500 focus:outline-none text-gray-805"
+                      placeholder="e.g. Waaree Solar Technologies"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] uppercase font-bold text-gray-400 mb-1">Email Address</label>
+                    <input
+                      type="email"
+                      value={tempSupplierEmail}
+                      onChange={(e) => setTempSupplierEmail(e.target.value)}
+                      className="w-full bg-transparent border border-gray-250 rounded-lg py-1.5 px-3 text-xs focus:border-teal-500 focus:outline-none text-gray-805"
+                      placeholder="e.g. orders@supplier.com"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] uppercase font-bold text-gray-400 mb-1">Phone / WhatsApp</label>
+                    <input
+                      type="text"
+                      value={tempSupplierPhone}
+                      onChange={(e) => setTempSupplierPhone(e.target.value)}
+                      className="w-full bg-transparent border border-gray-250 rounded-lg py-1.5 px-3 text-xs focus:border-teal-500 focus:outline-none text-gray-805"
+                      placeholder="e.g. +919988776655"
+                    />
+                  </div>
+                  <div className="flex gap-2 justify-end pt-1">
+                    <button
+                      onClick={() => setIsEditingSupplier(false)}
+                      className="px-2.5 py-1.5 bg-gray-55 hover:bg-gray-100 border border-gray-200 text-gray-600 rounded-md font-semibold text-[10px] cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleSaveSupplierDetails}
+                      className="px-3 py-1.5 bg-teal-700 hover:bg-teal-850 text-white rounded-md font-bold text-[10px] cursor-pointer shadow-sm"
+                    >
+                      Save Supplier
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* AI Explainer Segment */}
               <div className="bg-teal-50/50 border border-teal-150 p-3.5 rounded-xl text-left mt-3">
@@ -1686,21 +1851,49 @@ BizPilot`
                 </p>
               </div>
 
+              {(!supplierInfo.email || !supplierInfo.phone) && (
+                <div className="bg-rose-50/50 border border-rose-100 p-2.5 rounded-lg text-left text-[10px] text-rose-700 font-medium space-y-1">
+                  {!supplierInfo.email && <p>⚠️ Email drafting is disabled because the supplier email is missing.</p>}
+                  {!supplierInfo.phone && <p>⚠️ WhatsApp drafting is disabled because the supplier phone number is missing.</p>}
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-3 pt-2">
-                <button
-                  onClick={handleDraftEmail}
-                  className="w-full bg-gradient-to-tr from-teal-750 to-emerald-600 hover:from-teal-800 hover:to-emerald-700 text-white font-bold py-2.5 rounded-lg transition-all text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
-                >
-                  <Mail className="w-3.5 h-3.5" />
-                  <span>Draft Email</span>
-                </button>
-                <button
-                  onClick={handleDraftWhatsApp}
-                  className="w-full bg-white hover:bg-gray-50 border border-gray-250 text-gray-700 font-bold py-2.5 rounded-lg transition-all text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
-                >
-                  <MessageSquare className="w-3.5 h-3.5 text-green-600" />
-                  <span>Draft WhatsApp</span>
-                </button>
+                {supplierInfo.email ? (
+                  <button
+                    onClick={handleDraftEmail}
+                    className="w-full bg-gradient-to-tr from-teal-750 to-emerald-600 hover:from-teal-800 hover:to-emerald-700 text-white font-bold py-2.5 rounded-lg transition-all text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+                  >
+                    <Mail className="w-3.5 h-3.5" />
+                    <span>Draft Email</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setIsEditingSupplier(true)}
+                    className="w-full bg-gray-50 border border-dashed border-gray-300 hover:bg-gray-100 text-gray-450 font-bold py-2.5 rounded-lg transition-all text-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Mail className="w-3.5 h-3.5 text-gray-400" />
+                    <span>Add Supplier Email</span>
+                  </button>
+                )}
+
+                {supplierInfo.phone ? (
+                  <button
+                    onClick={handleDraftWhatsApp}
+                    className="w-full bg-white hover:bg-gray-50 border border-gray-250 text-gray-700 font-bold py-2.5 rounded-lg transition-all text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+                  >
+                    <MessageSquare className="w-3.5 h-3.5 text-green-600" />
+                    <span>Draft WhatsApp</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setIsEditingSupplier(true)}
+                    className="w-full bg-gray-50 border border-dashed border-gray-300 hover:bg-gray-100 text-gray-450 font-bold py-2.5 rounded-lg transition-all text-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <MessageSquare className="w-3.5 h-3.5 text-gray-400" />
+                    <span>Add Supplier Phone</span>
+                  </button>
+                )}
               </div>
             </div>
           </div>
