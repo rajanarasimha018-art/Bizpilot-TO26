@@ -16,8 +16,7 @@ import Customers from "./pages/Customers";
 import Backups from "./pages/Backups";
 import Copilot from "./pages/Copilot";
 import OperationsDashboard from "./pages/OperationsDashboard";
-import { auth } from "./googleDrive";
-import { signOut } from "firebase/auth";
+import { supabase } from "./lib/supabase";
 export default function App() {
   const [user, setUser] = useState(null);
   const [theme, setTheme] = useState(() => {
@@ -46,6 +45,24 @@ export default function App() {
   const [reports, setReports] = useState([]);
   const [compileLoading, setCompileLoading] = useState(false);
   useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session) {
+        const meta = session.user.user_metadata || {};
+        const profile = {
+          email: session.user.email,
+          name: meta.name || session.user.email.split("@")[0],
+          businessName: meta.businessName || "BizPilot Business",
+          businessType: meta.businessType || "Wholesale & Distribution",
+          currency: meta.currency || "INR"
+        };
+        setUser(profile);
+        localStorage.setItem("bizpilot_profile", JSON.stringify(profile));
+      } else {
+        setUser(null);
+        localStorage.removeItem("bizpilot_profile");
+      }
+    });
+
     const saved = localStorage.getItem("bizpilot_profile");
     if (saved) {
       setUser(JSON.parse(saved));
@@ -64,6 +81,10 @@ export default function App() {
       .catch((err) => {
         console.warn("Backend profile sync error on load", err);
       });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
   useEffect(() => {
     const loadEntities = async () => {
@@ -96,9 +117,9 @@ export default function App() {
       console.error("Logout sync failed:", err);
     }
     try {
-      await signOut(auth);
+      await supabase.auth.signOut();
     } catch (err) {
-      console.warn("Firebase signout error:", err);
+      console.warn("Supabase signout error:", err);
     }
     localStorage.removeItem("bizpilot_profile");
     localStorage.removeItem("bizpilot_chat");

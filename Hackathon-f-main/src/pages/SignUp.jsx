@@ -1,24 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Sparkles, User, Building, Mail, Lock, Eye, EyeOff, Loader, ArrowRight } from "lucide-react";
-import { auth } from "../googleDrive";
-import { createUserWithEmailAndPassword } from "firebase/auth";
-
-const isFirebaseAuthFallbackError = (error) => {
-  const code = error?.code || "";
-  const message = error?.message || "";
-  const loweredMessage = message.toLowerCase();
-  return [
-    "auth/unauthorized-domain",
-    "auth/network-request-failed",
-    "auth/configuration-not-found",
-    "auth/operation-not-allowed",
-    "auth/invalid-api-key",
-    "auth/app-not-authorized",
-    "auth/invalid-app-credential",
-    "auth/internal-error"
-  ].includes(code) || loweredMessage.includes("authorized domain") || loweredMessage.includes("domain") || loweredMessage.includes("configuration") || loweredMessage.includes("api key") || loweredMessage.includes("popup closed");
-};
+import { supabase } from "../lib/supabase";
 
 export default function SignUp({ onLoginSuccess, user }) {
   const navigate = useNavigate();
@@ -66,13 +49,23 @@ export default function SignUp({ onLoginSuccess, user }) {
     }
 
     try {
-      // Step 1: Register with Firebase Auth (gracefully catch and bypass local domain blockages)
+      // Step 1: Register with Supabase Auth
       try {
-        await createUserWithEmailAndPassword(auth, cleanEmail, password);
-      } catch (fbErr) {
-        if (!isFirebaseAuthFallbackError(fbErr)) {
-          console.warn("Firebase Auth registration failed, relying on server-side registration fallback...", fbErr);
-        }
+        const { data, error: sbErr } = await supabase.auth.signUp({
+          email: cleanEmail,
+          password: password,
+          options: {
+            data: {
+              name: name,
+              businessName: businessName,
+              businessType: businessType,
+              currency: currency
+            }
+          }
+        });
+        if (sbErr) throw sbErr;
+      } catch (sbErr) {
+        console.warn("Supabase Auth registration failed, trying local fallback:", sbErr);
       }
 
       // Step 2: Register on FastAPI backend
@@ -119,11 +112,9 @@ export default function SignUp({ onLoginSuccess, user }) {
     } catch (err) {
       console.error("Registration error:", err);
       let msg = "Failed to create account.";
-      if (err.code === "auth/email-already-in-use" || err.message.includes("already registered")) {
+      if (err.message?.includes("already registered") || err.message?.includes("already in use") || err.message?.includes("Email already in use")) {
         msg = "This email is already registered.";
-      } else if (err.code === "auth/invalid-email") {
-        msg = "Invalid email format.";
-      } else if (err.code === "auth/weak-password") {
+      } else if (err.message?.includes("weak-password") || err.message?.includes("should be at least 6 characters") || err.status === 400) {
         msg = "Password must be at least 6 characters.";
       } else {
         msg = err.message || msg;

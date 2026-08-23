@@ -1,24 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Sparkles, Mail, Lock, Eye, EyeOff, Loader, ArrowRight } from "lucide-react";
-import { auth } from "../googleDrive";
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
-
-const isFirebaseAuthFallbackError = (error) => {
-  const code = error?.code || "";
-  const message = error?.message || "";
-  const loweredMessage = message.toLowerCase();
-  return [
-    "auth/unauthorized-domain",
-    "auth/network-request-failed",
-    "auth/configuration-not-found",
-    "auth/operation-not-allowed",
-    "auth/invalid-api-key",
-    "auth/app-not-authorized",
-    "auth/invalid-app-credential",
-    "auth/internal-error"
-  ].includes(code) || loweredMessage.includes("authorized domain") || loweredMessage.includes("domain") || loweredMessage.includes("configuration") || loweredMessage.includes("api key") || loweredMessage.includes("popup closed");
-};
+import { supabase } from "../lib/supabase";
 
 export default function Login({ onLoginSuccess, user }) {
   const navigate = useNavigate();
@@ -54,26 +37,34 @@ export default function Login({ onLoginSuccess, user }) {
     }
 
     try {
-      // Step 1: Firebase Auth check (gracefully bypass local domain/config blockages)
-      let firebaseUser = null;
+      // Step 1: Supabase Auth check
       try {
-        const userCredential = await signInWithEmailAndPassword(auth, cleanEmail, password);
-        firebaseUser = userCredential.user;
-      } catch (fbErr) {
-        console.warn("Firebase Auth sign-in error, trying local server fallback...", fbErr);
-        if (fbErr.code === "auth/wrong-password") {
-          throw fbErr;
-        }
-        if (isFirebaseAuthFallbackError(fbErr)) {
-          console.warn("Firebase is restricted on this local domain; falling back to direct database login.");
-        } else if (fbErr.code === "auth/user-not-found" || fbErr.code === "auth/invalid-credential" || fbErr.code === "auth/invalid-email") {
-          try {
-            const userCredential = await createUserWithEmailAndPassword(auth, cleanEmail, password);
-            firebaseUser = userCredential.user;
-          } catch (createErr) {
-            console.warn("Firebase Auto-registration failed:", createErr);
+        const { data, error: sbErr } = await supabase.auth.signInWithPassword({
+          email: cleanEmail,
+          password: password
+        });
+        if (sbErr) {
+          console.warn("Supabase Auth sign-in error, trying auto-registration fallback...", sbErr);
+          if (sbErr.message?.includes("Invalid login credentials") || sbErr.status === 400 || sbErr.message?.includes("Email not confirmed")) {
+            const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
+              email: cleanEmail,
+              password: password,
+              options: {
+                data: {
+                  name: cleanEmail.split("@")[0],
+                  businessName: "BizPilot Business",
+                  businessType: "Wholesale & Distribution",
+                  currency: "INR"
+                }
+              }
+            });
+            if (signUpErr) throw signUpErr;
+          } else {
+            throw sbErr;
           }
         }
+      } catch (sbErr) {
+        console.warn("Supabase Auth sign-in failed, trying local fallback:", sbErr);
       }
 
       // Step 2: Synchronize with FastAPI backend
@@ -117,10 +108,10 @@ export default function Login({ onLoginSuccess, user }) {
     } catch (err) {
       console.error("Login failure:", err);
       let msg = "Authentication failed.";
-      if (err.code === "auth/wrong-password" || err.message.includes("Incorrect password")) {
+      if (err.message?.includes("Invalid login credentials") || err.message?.includes("invalid_credentials")) {
+        msg = "Incorrect password or credentials for this registered email.";
+      } else if (err.message?.includes("already registered") || err.message?.includes("Email already in use")) {
         msg = "Incorrect password for this registered email.";
-      } else if (err.code === "auth/invalid-email") {
-        msg = "Invalid email address format.";
       } else {
         msg = err.message || msg;
       }
@@ -137,23 +128,28 @@ export default function Login({ onLoginSuccess, user }) {
     const demoPassword = "demo12345";
 
     try {
-      let firebaseUser;
       try {
-        const userCredential = await signInWithEmailAndPassword(auth, demoEmail, demoPassword);
-        firebaseUser = userCredential.user;
-      } catch (fbErr) {
-        if (isFirebaseAuthFallbackError(fbErr)) {
-          console.warn("Firebase Auth is unavailable for demo login; using backend fallback.", fbErr);
-        } else if (fbErr.code === "auth/user-not-found" || fbErr.code === "auth/invalid-credential") {
-          try {
-            const userCredential = await createUserWithEmailAndPassword(auth, demoEmail, demoPassword);
-            firebaseUser = userCredential.user;
-          } catch (createErr) {
-            throw fbErr;
-          }
-        } else {
-          throw fbErr;
+        const { data, error: sbErr } = await supabase.auth.signInWithPassword({
+          email: demoEmail,
+          password: demoPassword
+        });
+        if (sbErr) {
+          const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
+            email: demoEmail,
+            password: demoPassword,
+            options: {
+              data: {
+                name: "Siddu",
+                businessName: "Gamig Solar Solutions",
+                businessType: "Solar Energy Systems & Green Technology",
+                currency: "INR"
+              }
+            }
+          });
+          if (signUpErr) throw signUpErr;
         }
+      } catch (sbErr) {
+        console.warn("Supabase Auth demo sign-in error, using backend fallback:", sbErr);
       }
 
       const res = await fetch("/api/auth/login", {
