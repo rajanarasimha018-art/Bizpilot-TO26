@@ -13,25 +13,10 @@ export default function Login({ onLoginSuccess, user }) {
   const [rememberMe, setRememberMe] = useState(false);
   const [helperMessage, setHelperMessage] = useState("");
 
-  // Dark Mode Theme State
-  const [isDarkMode, setIsDarkMode] = useState(() => {
-    const savedTheme = localStorage.getItem("bizpilot-theme");
-    if (savedTheme) {
-      return savedTheme === "dark";
-    }
-    return window.matchMedia("(prefers-color-scheme: dark)").matches;
-  });
-
-  // Apply dark mode styling class
   useEffect(() => {
-    if (isDarkMode) {
-      document.body.classList.add("dark-theme-active");
-      localStorage.setItem("bizpilot-theme", "dark");
-    } else {
-      document.body.classList.remove("dark-theme-active");
-      localStorage.setItem("bizpilot-theme", "light");
-    }
-  }, [isDarkMode]);
+    document.body.classList.remove("dark-theme-active");
+    document.documentElement.classList.remove("dark");
+  }, []);
 
   useEffect(() => {
     if (user) {
@@ -173,15 +158,7 @@ export default function Login({ onLoginSuccess, user }) {
       <div className="w-full max-w-md bg-white border border-gray-250/80 p-8 rounded-3xl z-10 shadow-xl relative transition-all duration-300 animate-slide-up login-card-container">
         <div className="absolute top-0 left-10 right-10 h-[1.5px] bg-gradient-to-r from-transparent via-teal-650 to-transparent" />
 
-        {/* Theme Toggle Button */}
-        <button
-          type="button"
-          onClick={() => setIsDarkMode(!isDarkMode)}
-          aria-label="Toggle theme mode"
-          className="absolute top-6 right-6 p-2 rounded-xl border border-gray-205 dark:border-slate-800 hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors duration-300 text-gray-500 dark:text-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 cursor-pointer"
-        >
-          {isDarkMode ? <Sun className="w-4 h-4 text-teal-400" /> : <Moon className="w-4 h-4 text-slate-600" />}
-        </button>
+
 
         <h2 className="text-xl font-display font-bold text-slate-900 mb-1 text-center login-text-title">
           Welcome back to BizPilot
@@ -268,7 +245,7 @@ export default function Login({ onLoginSuccess, user }) {
             type="submit"
             disabled={loading}
             aria-label="Sign In button"
-            className="w-full bg-teal-750 hover:bg-teal-850 active:scale-[0.98] text-white font-bold py-3 rounded-xl transition-all duration-300 shadow-md shadow-teal-700/10 text-xs flex items-center justify-center gap-2 cursor-pointer mt-6 disabled:opacity-60 disabled:cursor-not-allowed group"
+            className="w-full text-white font-bold py-3 rounded-xl shadow-md transition-all duration-200 text-xs flex items-center justify-center gap-2 cursor-pointer mt-6 disabled:opacity-60 disabled:cursor-not-allowed group login-submit-btn"
           >
             {loading ? (
               <>
