@@ -451,20 +451,20 @@ export default function OperationsDashboard({ view, user, crtEnabled }) {
 
   // derived properties for low stock warning
   const lowStock = useMemo(() => {
-    return data.products.filter(p => p.currentStock < p.reorderThreshold);
-  }, [data.products]);
+    return (data?.products || []).filter(p => p.currentStock < p.reorderThreshold);
+  }, [data?.products]);
 
   // Derived 7-Day Moving Average & Restock Suggestion Logic
   const productSuggestions = useMemo(() => {
     // Standard reorder logic: 7 day moving average of sales
     // We mock sales velocity by mapping bills & stock movements
     const suggestions = {};
-    data.products.forEach(p => {
+    (data?.products || []).forEach(p => {
       // Find average daily sales rate (sold movements in the last 7 days)
       // Since seed is simple, we check all 'sold' movements for that product in last 14 days and divide by 14
       // Default daily demand if no sales: 0.1 units/day
       let totalSold = 0;
-      const productMovements = data.bills
+      const productMovements = (data?.bills || [])
         .flatMap(b => b.extracted_items || [])
         .filter(item => item.name === p.name);
         
@@ -482,11 +482,11 @@ export default function OperationsDashboard({ view, user, crtEnabled }) {
       };
     });
     return suggestions;
-  }, [data.products, data.bills]);
+  }, [data?.products, data?.bills]);
 
   // Date Filtered Invoice List
   const filteredInvoices = useMemo(() => {
-    if (!data.bills) return [];
+    if (!data?.bills) return [];
     // We show confirmed bills representing sales or invoices
     return data.bills.filter(b => {
       if (invoiceDateFilter) {
@@ -494,7 +494,7 @@ export default function OperationsDashboard({ view, user, crtEnabled }) {
       }
       return true;
     });
-  }, [data.bills, invoiceDateFilter]);
+  }, [data?.bills, invoiceDateFilter]);
 
   // Card component supporting CRT retro look
   const Card = ({ children, className = "" }) => (
@@ -619,7 +619,7 @@ export default function OperationsDashboard({ view, user, crtEnabled }) {
                         onChange={e => setDraft({ ...draft, workerId: e.target.value })}
                       >
                         <option value="">Choose worker payout target</option>
-                        {data.workers.map(w => (
+                        {(data?.workers || []).map(w => (
                           <option key={w.id} value={w.id}>{w.name} — Payout rate: {formatAmount(w.daily_wage_rate || w.hourly_rate || 0, currency)}</option>
                         ))}
                       </select>
@@ -735,33 +735,33 @@ export default function OperationsDashboard({ view, user, crtEnabled }) {
                   <div className="border-b border-gray-200 pb-2">
                     <span className="block text-gray-450">REVENUE</span>
                     <b className="text-teal-700 text-sm font-semibold">
-                      +{formatAmount(data.financialSummary.grossRevenue, currency)}
+                      +{formatAmount(data?.financialSummary?.grossRevenue || 0, currency)}
                     </b>
                   </div>
                   <div className="border-b border-gray-200 pb-2">
                     <span className="block text-gray-450">MATERIALS</span>
                     <b className="text-rose-600 text-sm font-semibold">
-                      -{formatAmount(data.financialSummary.materialCost, currency)}
+                      -{formatAmount(data?.financialSummary?.materialCost || 0, currency)}
                     </b>
                   </div>
                   <div className="border-b border-gray-200 pb-2">
                     <span className="block text-gray-450">WAGES PAID</span>
                     <b className="text-rose-600 text-sm font-semibold">
-                      -{formatAmount(data.financialSummary.wages, currency)}
+                      -{formatAmount(data?.financialSummary?.wages || 0, currency)}
                     </b>
                   </div>
                   <div className="border-b border-gray-200 pb-2">
                     <span className="block text-gray-450">OTHER LOGS</span>
                     <b className="text-rose-600 text-sm font-semibold">
-                      -{formatAmount(data.financialSummary.medical + data.financialSummary.transport, currency)}
+                      -{formatAmount((data?.financialSummary?.medical || 0) + (data?.financialSummary?.transport || 0), currency)}
                     </b>
                   </div>
                   <div className="col-span-2 pt-2">
                     <span className="block text-gray-450">NET OPERATIONS CAPITAL</span>
                     <b className={`text-base font-bold ${
-                      data.financialSummary.netRevenue >= 0 ? "text-emerald-300" : "text-rose-600"
+                      (data?.financialSummary?.netRevenue || 0) >= 0 ? "text-emerald-300" : "text-rose-600"
                     }`}>
-                      {formatAmount(data.financialSummary.netRevenue, currency)}
+                      {formatAmount(data?.financialSummary?.netRevenue || 0, currency)}
                     </b>
                   </div>
                 </div>
@@ -842,7 +842,7 @@ export default function OperationsDashboard({ view, user, crtEnabled }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {data.products.map(p => {
+                    {(data?.products || []).map(p => {
                       const suggest = productSuggestions[p.id] || { avgSales: "0.0", suggestedQty: 0, timeframe: "14 Days" };
                       const isLow = p.currentStock < p.reorderThreshold;
                       
@@ -901,7 +901,7 @@ export default function OperationsDashboard({ view, user, crtEnabled }) {
                       onChange={e => setRequest({ ...request, productId: e.target.value })}
                     >
                       <option value="">Choose item...</option>
-                      {data.products.map(p => (
+                      {(data?.products || []).map(p => (
                         <option key={p.id} value={p.id}>{p.name}</option>
                       ))}
                     </select>
@@ -943,8 +943,8 @@ export default function OperationsDashboard({ view, user, crtEnabled }) {
                 </h3>
 
                 <div className="space-y-4 max-h-[380px] overflow-y-auto pr-1">
-                  {data.stockRequests.length > 0 ? (
-                    data.stockRequests.map(x => (
+                  {(data?.stockRequests || []).length > 0 ? (
+                    (data?.stockRequests || []).map(x => (
                       <div 
                         className={`p-3.5 rounded-2xl border text-sm flex flex-col gap-2 relative transition-all ${
                           x.status === "pending" 
@@ -1193,7 +1193,7 @@ export default function OperationsDashboard({ view, user, crtEnabled }) {
                     onChange={e => setAttendance({ ...attendance, workerId: e.target.value })}
                   >
                     <option value="">Select worker...</option>
-                    {data.workers.map(w => (
+                    {(data?.workers || []).map(w => (
                       <option key={w.id} value={w.id}>{w.name} ({w.role})</option>
                     ))}
                   </select>

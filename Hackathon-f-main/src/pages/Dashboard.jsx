@@ -959,11 +959,11 @@ export default function Dashboard({
   }, []);
   const topSellingProducts = useMemo(() => {
     const salesMap = {};
-    products.forEach((p) => {
+    (products || []).forEach((p) => {
       salesMap[p.name] = { qty: 0, revenue: 0, category: p.category };
     });
-    mockInvoices.forEach((inv) => {
-      inv.items.forEach((item) => {
+    (mockInvoices || []).forEach((inv) => {
+      (inv?.items || []).forEach((item) => {
         if (!salesMap[item.name]) {
           salesMap[item.name] = { qty: 0, revenue: 0, category: "Solar Equipment" };
         }
@@ -979,14 +979,14 @@ export default function Dashboard({
     })).sort((a, b) => b.quantitySold - a.quantitySold).slice(0, 3);
   }, [mockInvoices, products]);
   const unpaidInvoicesAmount = useMemo(() => {
-    return mockInvoices.filter((inv) => inv.status === "unpaid").reduce((sum, inv) => sum + inv.total, 0);
+    return (mockInvoices || []).filter((inv) => inv.status === "unpaid").reduce((sum, inv) => sum + inv.total, 0);
   }, [mockInvoices]);
   const lowStockProducts = useMemo(() => {
-    return products.filter((p) => p.quantity <= p.minStock);
+    return (products || []).filter((p) => p.quantity <= p.minStock);
   }, [products]);
   const expensePieData = useMemo(() => {
     const categories = {};
-    mockTransactions.filter((t) => t.type === "expense").forEach((t) => {
+    (mockTransactions || []).filter((t) => t.type === "expense").forEach((t) => {
       const cat = t.category || "Uncategorized";
       categories[cat] = (categories[cat] || 0) + t.amount;
     });
@@ -1005,7 +1005,7 @@ export default function Dashboard({
     last7Days.forEach((date) => {
       dateGroups[date] = { date: date.slice(5), Revenue: 0, Expenses: 0 };
     });
-    mockTransactions.forEach((t) => {
+    (mockTransactions || []).forEach((t) => {
       const dateKey = t.date;
       const formattedDate = dateKey.slice(5);
       if (dateGroups[dateKey]) {

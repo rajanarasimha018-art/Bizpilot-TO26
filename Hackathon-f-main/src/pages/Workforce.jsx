@@ -187,7 +187,7 @@ export default function Workforce({ user, theme = "cosmic" }) {
       "R&D Lab Testing": 0,
       "Sales & Support": 0
     };
-    workers.forEach((w) => {
+    (workers || []).forEach((w) => {
       if (counts[w.sector] !== void 0) {
         counts[w.sector]++;
       }
@@ -195,17 +195,17 @@ export default function Workforce({ user, theme = "cosmic" }) {
     return counts;
   }, [workers]);
   const filteredWorkers = useMemo(() => {
-    return workers.filter(
+    return (workers || []).filter(
       (w) => w.name.toLowerCase().includes(searchQuery.toLowerCase()) || w.role.toLowerCase().includes(searchQuery.toLowerCase()) || w.sector.toLowerCase().includes(searchQuery.toLowerCase())
     );
   }, [workers, searchQuery]);
   const topSellingProducts = useMemo(() => {
     const salesMap = {};
-    products.forEach((p) => {
+    (products || []).forEach((p) => {
       salesMap[p.name] = { qty: 0, revenue: 0, category: p.category, cost: p.cost };
     });
-    invoices.forEach((inv) => {
-      inv.items.forEach((item) => {
+    (invoices || []).forEach((inv) => {
+      (inv?.items || []).forEach((item) => {
         if (!salesMap[item.name]) {
           salesMap[item.name] = { qty: 0, revenue: 0, category: "Solar Equipment", cost: 0 };
         }

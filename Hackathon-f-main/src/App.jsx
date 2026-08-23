@@ -29,7 +29,23 @@ export default function App() {
     sessionStorage.setItem("bizpilot_splash_shown", "true");
   };
 
-  const [user, setUser] = useState(null);
+  const defaultProfile = {
+    email: "gamigrrider18@gmail.com",
+    name: "Siddu",
+    businessName: "BizPilot",
+    businessType: "Clean Energy Systems & Green Technology",
+    currency: "INR"
+  };
+  const [user, setUser] = useState(() => {
+    const saved = localStorage.getItem("bizpilot_profile");
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.businessName) return parsed;
+      } catch (e) {}
+    }
+    return defaultProfile;
+  });
   const theme = "emerald";
   const crtEnabled = false;
   const handleToggleCrt = () => {};
@@ -40,10 +56,6 @@ export default function App() {
   const [reports, setReports] = useState([]);
   const [compileLoading, setCompileLoading] = useState(false);
   useEffect(() => {
-    const saved = localStorage.getItem("bizpilot_profile");
-    if (saved) {
-      setUser(JSON.parse(saved));
-    }
     fetch("/api/profile")
       .then((res) => {
         if (res.ok) return res.json();
@@ -57,8 +69,6 @@ export default function App() {
       })
       .catch((err) => {
         console.warn("Backend profile sync error on load", err);
-        setUser(null);
-        localStorage.removeItem("bizpilot_profile");
       });
   }, []);
   const loadFallbackData = () => {
@@ -342,24 +352,42 @@ export default function App() {
         fetch("/api/transactions"),
         fetch("/api/reports")
       ]);
+      
+      let hasError = false;
+      
       if (pRes.ok) {
         const pData = await pRes.json();
         setProducts(pData);
         localStorage.setItem("bizpilot_products_fallback", JSON.stringify(pData));
       } else {
-        loadFallbackData();
+        hasError = true;
       }
+      
       if (iRes.ok) {
         const iData = await iRes.json();
         setInvoices(iData);
         localStorage.setItem("bizpilot_invoices_fallback", JSON.stringify(iData));
+      } else {
+        hasError = true;
       }
+      
       if (tRes.ok) {
         const tData = await tRes.json();
         setTransactions(tData);
         localStorage.setItem("bizpilot_transactions_fallback", JSON.stringify(tData));
+      } else {
+        hasError = true;
       }
-      if (rRes.ok) setReports(await rRes.json());
+      
+      if (rRes.ok) {
+        setReports(await rRes.json());
+      } else {
+        hasError = true;
+      }
+      
+      if (hasError) {
+        loadFallbackData();
+      }
     } catch (err) {
       console.warn("Express backend connection not active yet. Fallback to client state memory.", err);
       loadFallbackData();
@@ -387,7 +415,7 @@ export default function App() {
     }
     localStorage.removeItem("bizpilot_profile");
     localStorage.removeItem("bizpilot_chat");
-    setUser(null);
+    setUser(defaultProfile);
   };
   const handleUpdateProfile = (profile) => {
     setUser(profile);

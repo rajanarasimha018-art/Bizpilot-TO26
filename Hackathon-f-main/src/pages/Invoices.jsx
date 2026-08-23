@@ -782,7 +782,7 @@ export default function Invoices({ user, invoices, products, onAddInvoice, onEdi
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 font-mono text-[11px]">
-                    {selectedInvoice.items.map((item, index) => {
+                    {(selectedInvoice?.items || []).map((item, index) => {
                       const qty = item.quantity !== undefined ? item.quantity : (item.qty !== undefined ? item.qty : 1);
                       const price = item.price !== undefined ? item.price : (item.unit_price !== undefined ? item.unit_price : 0);
                       const totalAmt = item.total !== undefined ? item.total : (qty * price);
