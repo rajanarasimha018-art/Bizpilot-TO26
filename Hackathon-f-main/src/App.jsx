@@ -63,10 +63,20 @@ export default function App() {
   }, []);
   const loadFallbackData = () => {
     // 1. Products
-    const savedProducts = localStorage.getItem("bizpilot_products_fallback");
-    if (savedProducts) {
-      setProducts(JSON.parse(savedProducts));
-    } else {
+    let productsLoaded = false;
+    try {
+      const savedProducts = localStorage.getItem("bizpilot_products_fallback");
+      if (savedProducts && savedProducts !== "undefined" && savedProducts !== "null") {
+        const parsed = JSON.parse(savedProducts);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setProducts(parsed);
+          productsLoaded = true;
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to parse saved products fallback", e);
+    }
+    if (!productsLoaded) {
       const initialProducts = [
         {
           id: "p1",
@@ -76,9 +86,9 @@ export default function App() {
           currentStock: 18,
           minStock: 30,
           reorderThreshold: 30,
-          cost: 4.0,
-          unitCost: 4.0,
-          price: 6.5,
+          cost: 240.0,
+          unitCost: 240.0,
+          price: 360.0,
           sku: "PAP-A4-XYZ",
           description: "High-quality 80gsm white A4 printing paper.",
           supplier: "Global Paper Co"
@@ -91,9 +101,9 @@ export default function App() {
           currentStock: 3,
           minStock: 10,
           reorderThreshold: 10,
-          cost: 8.0,
-          unitCost: 8.0,
-          price: 12.0,
+          cost: 90.0,
+          unitCost: 90.0,
+          price: 130.0,
           sku: "PND-PWD-100",
           description: "Sandalwood talcum powder 100g.",
           supplier: "ABC Foods"
@@ -106,9 +116,9 @@ export default function App() {
           currentStock: 42,
           minStock: 20,
           reorderThreshold: 20,
-          cost: 3.0,
-          unitCost: 3.0,
-          price: 5.0,
+          cost: 120.0,
+          unitCost: 120.0,
+          price: 200.0,
           sku: "USB-C-3FT",
           description: "3ft fast charging braided USB-C cable.",
           supplier: "Apex Power"
@@ -121,9 +131,9 @@ export default function App() {
           currentStock: 24,
           minStock: 15,
           reorderThreshold: 15,
-          cost: 12.0,
-          unitCost: 12.0,
-          price: 24.0,
+          cost: 350.0,
+          unitCost: 350.0,
+          price: 600.0,
           sku: "MSE-WRL-OPT",
           description: "Ergonomic 2.4GHz wireless optical mouse.",
           supplier: "Apex Power"
@@ -136,9 +146,9 @@ export default function App() {
           currentStock: 65,
           minStock: 25,
           reorderThreshold: 25,
-          cost: 2.5,
-          unitCost: 2.5,
-          price: 4.5,
+          cost: 80.0,
+          unitCost: 80.0,
+          price: 140.0,
           sku: "LED-12W-WHT",
           description: "Energy-efficient warm white 12W LED bulb.",
           supplier: "Apex Power"
@@ -151,9 +161,9 @@ export default function App() {
           currentStock: 25,
           minStock: 15,
           reorderThreshold: 15,
-          cost: 2.0,
-          unitCost: 2.0,
-          price: 3.5,
+          cost: 40.0,
+          unitCost: 40.0,
+          price: 70.0,
           sku: "NTB-A5-RUL",
           description: "Ruled A5 notebook, 160 pages.",
           supplier: "Global Paper Co"
@@ -166,9 +176,9 @@ export default function App() {
           currentStock: 28,
           minStock: 15,
           reorderThreshold: 15,
-          cost: 18.0,
-          unitCost: 18.0,
-          price: 30.0,
+          cost: 400.0,
+          unitCost: 400.0,
+          price: 750.0,
           sku: "KBD-USB-STD",
           description: "Standard full-size USB wired keyboard.",
           supplier: "Apex Power"
@@ -181,9 +191,9 @@ export default function App() {
           currentStock: 95,
           minStock: 30,
           reorderThreshold: 30,
-          cost: 5.0,
-          unitCost: 5.0,
-          price: 8.0,
+          cost: 50.0,
+          unitCost: 50.0,
+          price: 90.0,
           sku: "PEN-BLU-10P",
           description: "Pack of 10 blue ink fine-point ball pens.",
           supplier: "ABC Foods"
@@ -196,9 +206,9 @@ export default function App() {
           currentStock: 6,
           minStock: 15,
           reorderThreshold: 15,
-          cost: 1.2,
-          unitCost: 1.2,
-          price: 2.0,
+          cost: 20.0,
+          unitCost: 20.0,
+          price: 35.0,
           sku: "THM-PR-3IN",
           description: "3-inch thermal POS receipt paper roll.",
           supplier: "Speedy Logistics"
@@ -211,9 +221,9 @@ export default function App() {
           currentStock: 22,
           minStock: 12,
           reorderThreshold: 12,
-          cost: 3.5,
-          unitCost: 3.5,
-          price: 6.0,
+          cost: 100.0,
+          unitCost: 100.0,
+          price: 160.0,
           sku: "CLN-SPR-500",
           description: "Multi-surface disinfectant cleaning spray 500ml.",
           supplier: "Unilever Wholesale"
@@ -226,9 +236,9 @@ export default function App() {
           currentStock: 9,
           minStock: 18,
           reorderThreshold: 18,
-          cost: 8.0,
-          unitCost: 8.0,
-          price: 15.0,
+          cost: 250.0,
+          unitCost: 250.0,
+          price: 450.0,
           sku: "PWR-AD-20W",
           description: "20W USB-C PD fast charger wall adapter.",
           supplier: "Apex Power"
@@ -241,9 +251,9 @@ export default function App() {
           currentStock: 35,
           minStock: 40,
           reorderThreshold: 40,
-          cost: 0.8,
-          unitCost: 0.8,
-          price: 1.5,
+          cost: 20.0,
+          unitCost: 20.0,
+          price: 40.0,
           sku: "BOX-MED-BRN",
           description: "Medium corrugated brown shipping boxes.",
           supplier: "Unknown Supplier"
@@ -254,70 +264,70 @@ export default function App() {
     }
 
     // 2. Invoices
-    const savedInvoices = localStorage.getItem("bizpilot_invoices_fallback");
-    if (savedInvoices) {
-      setInvoices(JSON.parse(savedInvoices));
-    } else {
-      const initialInvoices = [
-        {
-          id: "inv_1",
-          invoiceNumber: "INV-20260815-001",
-          clientName: "General Office Stores",
-          issueDate: "2026-08-15",
-          total: 78.0,
-          status: "paid"
-        },
-        {
-          id: "inv_2",
-          invoiceNumber: "INV-20260817-002",
-          clientName: "City Tech Hub",
-          issueDate: "2026-08-17",
-          total: 40.0,
-          status: "unpaid"
+    let invoicesLoaded = false;
+    try {
+      const savedInvoices = localStorage.getItem("bizpilot_invoices_fallback");
+      if (savedInvoices && savedInvoices !== "undefined" && savedInvoices !== "null") {
+        const parsed = JSON.parse(savedInvoices);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setInvoices(parsed);
+          invoicesLoaded = true;
         }
+      }
+    } catch (e) {
+      console.warn("Failed to parse saved invoices fallback", e);
+    }
+    if (!invoicesLoaded) {
+      const initialInvoices = [
+        { id: "inv_1", invoiceNumber: "INV-20260810-001", clientName: "General Office Stores", issueDate: "2026-08-10", total: 68000.0, status: "paid" },
+        { id: "inv_2", invoiceNumber: "INV-20260811-002", clientName: "City Tech Hub", issueDate: "2026-08-11", total: 87500.0, status: "paid" },
+        { id: "inv_3", invoiceNumber: "INV-20260812-003", clientName: "Vance Cosmetics", issueDate: "2026-08-12", total: 52000.0, status: "paid" },
+        { id: "inv_4", invoiceNumber: "INV-20260814-004", clientName: "Bright Lights Retail", issueDate: "2026-08-14", total: 70000.0, status: "paid" },
+        { id: "inv_5", invoiceNumber: "INV-20260815-005", clientName: "Alpha Logistics", issueDate: "2026-08-15", total: 57500.0, status: "paid" },
+        { id: "inv_6", invoiceNumber: "INV-20260816-006", clientName: "Standard Stationers", issueDate: "2026-08-16", total: 57000.0, status: "paid" },
+        { id: "inv_7", invoiceNumber: "INV-20260818-007", clientName: "Electronics Plaza", issueDate: "2026-08-18", total: 65000.0, status: "paid" },
+        { id: "inv_8", invoiceNumber: "INV-20260820-008", clientName: "Clean & Safe Wholesale", issueDate: "2026-08-20", total: 28800.0, status: "paid" },
+        { id: "inv_unpaid_1", invoiceNumber: "INV-20260821-009", clientName: "City Office Supplies", issueDate: "2026-08-21", total: 36000.0, status: "unpaid" },
+        { id: "inv_unpaid_2", invoiceNumber: "INV-20260822-010", clientName: "Apex Tech Distributors", issueDate: "2026-08-22", total: 14000.0, status: "unpaid" }
       ];
       setInvoices(initialInvoices);
       localStorage.setItem("bizpilot_invoices_fallback", JSON.stringify(initialInvoices));
     }
 
     // 3. Transactions
-    const savedTransactions = localStorage.getItem("bizpilot_transactions_fallback");
-    if (savedTransactions) {
-      setTransactions(JSON.parse(savedTransactions));
-    } else {
-      const initialTransactions = [
-        {
-          id: "tx_1",
-          date: "2026-08-15",
-          type: "revenue",
-          category: "Sales",
-          amount: 78.0,
-          description: "Invoice Payment: General Office Stores"
-        },
-        {
-          id: "tx_2",
-          date: "2026-08-17",
-          type: "revenue",
-          category: "Sales",
-          amount: 40.0,
-          description: "Invoice Payment: City Tech Hub"
-        },
-        {
-          id: "tx_3",
-          date: "2026-08-10",
-          type: "expense",
-          category: "Materials",
-          amount: 120.0,
-          description: "Bill Confirmed: Global Paper Co"
-        },
-        {
-          id: "tx_4",
-          date: "2026-08-10",
-          type: "expense",
-          category: "Materials",
-          amount: 150.0,
-          description: "Bill Confirmed: Apex Power"
+    let transactionsLoaded = false;
+    try {
+      const savedTransactions = localStorage.getItem("bizpilot_transactions_fallback");
+      if (savedTransactions && savedTransactions !== "undefined" && savedTransactions !== "null") {
+        const parsed = JSON.parse(savedTransactions);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setTransactions(parsed);
+          transactionsLoaded = true;
         }
+      }
+    } catch (e) {
+      console.warn("Failed to parse saved transactions fallback", e);
+    }
+    if (!transactionsLoaded) {
+      const initialTransactions = [
+        { id: "tx_inv_1", date: "2026-08-10", type: "revenue", category: "Sales", amount: 68000.0, description: "Invoice collection: General Office Stores (INV-20260810-001)" },
+        { id: "tx_inv_2", date: "2026-08-11", type: "revenue", category: "Sales", amount: 87500.0, description: "Invoice collection: City Tech Hub (INV-20260811-002)" },
+        { id: "tx_inv_3", date: "2026-08-12", type: "revenue", category: "Sales", amount: 52000.0, description: "Invoice collection: Vance Cosmetics (INV-20260812-003)" },
+        { id: "tx_inv_4", date: "2026-08-14", type: "revenue", category: "Sales", amount: 70000.0, description: "Invoice collection: Bright Lights Retail (INV-20260814-004)" },
+        { id: "tx_inv_5", date: "2026-08-15", type: "revenue", category: "Sales", amount: 57500.0, description: "Invoice collection: Alpha Logistics (INV-20260815-005)" },
+        { id: "tx_inv_6", date: "2026-08-16", type: "revenue", category: "Sales", amount: 57000.0, description: "Invoice collection: Standard Stationers (INV-20260816-006)" },
+        { id: "tx_inv_7", date: "2026-08-18", type: "revenue", category: "Sales", amount: 65000.0, description: "Invoice collection: Electronics Plaza (INV-20260818-007)" },
+        { id: "tx_inv_8", date: "2026-08-20", type: "revenue", category: "Sales", amount: 28800.0, description: "Invoice collection: Clean & Safe Wholesale (INV-20260820-008)" },
+        { id: "tx_inv_unpaid_1", date: "2026-08-21", type: "revenue", category: "Sales", amount: 36000.0, description: "Invoice collection: City Office Supplies (INV-20260821-009)" },
+        { id: "tx_inv_unpaid_2", date: "2026-08-22", type: "revenue", category: "Sales", amount: 14000.0, description: "Invoice collection: Apex Tech Distributors (INV-20260822-010)" },
+        { id: "tx_bill_1", date: "2026-08-01", type: "expense", category: "Materials", amount: 95000.0, description: "Bill Confirmed: Global Paper Co" },
+        { id: "tx_bill_2", date: "2026-08-02", type: "expense", category: "Materials", amount: 110000.0, description: "Bill Confirmed: Apex Power" },
+        { id: "tx_bill_3", date: "2026-08-03", type: "expense", category: "Materials", amount: 75000.0, description: "Bill Confirmed: ABC Foods" },
+        { id: "tx_bill_4", date: "2026-08-04", type: "expense", category: "Materials", amount: 65000.0, description: "Bill Confirmed: Unilever Wholesale" },
+        { id: "tx_bill_5", date: "2026-08-05", type: "expense", category: "Materials", amount: 35000.0, description: "Bill Confirmed: Speedy Logistics" },
+        { id: "tx_bill_wages", date: "2026-08-15", type: "expense", category: "Wages", amount: 10000.0, description: "Bill Confirmed: Ravi Kumar" },
+        { id: "tx_bill_other", date: "2026-08-10", type: "expense", category: "Other", amount: 3000.0, description: "Bill Confirmed: Cloud Services" },
+        { id: "tx_bill_transport", date: "2026-08-12", type: "expense", category: "Transport", amount: 2000.0, description: "Bill Confirmed: DTDC Courier" }
       ];
       setTransactions(initialTransactions);
       localStorage.setItem("bizpilot_transactions_fallback", JSON.stringify(initialTransactions));

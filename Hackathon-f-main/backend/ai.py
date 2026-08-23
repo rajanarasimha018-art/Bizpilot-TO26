@@ -205,6 +205,67 @@ def programmatically_analyze_context(query: str, context: dict) -> dict:
     def fmt(val):
         return f"{currency_symbol}{val:,.2f}"
 
+    # A. Check if the query is about inventory worth/value/valuation
+    if any(k in lower for k in ["inventory value", "inventory worth", "value of my inventory", "valuation of inventory", "inventory valuation"]):
+        total_val = sum(float(p.get("quantity", 0)) * float(p.get("price", 0.0)) for p in products)
+        return {
+            "response_type": "standard",
+            "main_text": f"Your total inventory valuation is {fmt(total_val)}.",
+            "insight": f"This is calculated across {len(products)} products in your active catalog based on their current stock quantities and selling prices.",
+            "why_it_matters": "Understanding inventory valuation is crucial for managing working capital and assessing business liquidity.",
+            "recommendation": "Review slow-moving categories to optimize cash cycles and prevent cash tie-ups.",
+            "action": {
+                "label": "View Inventory",
+                "action_type": "view_inventory",
+                "payload": {}
+            }
+        }
+
+    # B. Check if the query is about highest stock-out risk
+    if any(k in lower for k in ["highest risk", "highest stock-out risk", "highest stockout risk", "most at risk", "maximum risk"]):
+        risk_product = None
+        min_ratio = 999.0
+        for p in products:
+            qty = float(p.get("quantity", 0))
+            min_s = float(p.get("minStock", 5))
+            if min_s > 0:
+                ratio = qty / min_s
+                if ratio < min_ratio:
+                    min_ratio = ratio
+                    risk_product = p
+        
+        if risk_product and min_ratio <= 1.0:
+            suggested_qty = max(50, int(risk_product.get("minStock", 5) * 4))
+            return {
+                "response_type": "standard",
+                "main_text": f"The product at highest stock-out risk is {risk_product.get('name')}.",
+                "insight": f"Current stock is {int(risk_product.get('quantity', 0))} units against a safety threshold of {int(risk_product.get('minStock', 5))} units (Ratio: {min_ratio*100:.1f}%).",
+                "why_it_matters": "Running out of stock on core products will lead to missed client delivery contracts and lost revenue.",
+                "recommendation": f"Place a restock request for approximately {suggested_qty} units with supplier {risk_product.get('supplier', 'Local supplier')} immediately.",
+                "action": {
+                    "label": "Request Restock",
+                    "action_type": "request_restock",
+                    "payload": {
+                        "product_name": risk_product.get("name"),
+                        "product_id": risk_product.get("id"),
+                        "qty": suggested_qty
+                    }
+                }
+            }
+        else:
+            return {
+                "response_type": "standard",
+                "main_text": "All products are currently at healthy stock levels with minimal stock-out risk.",
+                "insight": "All active inventory items exceed minimum safety reorder thresholds.",
+                "why_it_matters": "Warehouse levels are healthy and supply lines are stable.",
+                "recommendation": "Continue monitoring daily sales volumes to anticipate future demand spikes.",
+                "action": {
+                    "label": "View Inventory",
+                    "action_type": "view_inventory",
+                    "payload": {}
+                }
+            }
+
     # 1. Check if asking about a specific product in our catalog
     matched_product = None
     for p in products:

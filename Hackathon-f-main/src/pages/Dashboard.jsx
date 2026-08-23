@@ -925,60 +925,11 @@ export default function Dashboard({
   };
 
   const mockTransactions = useMemo(() => {
-    const today = new Date();
-    const dates = Array.from({ length: 7 }).map((_, i) => {
-      const d = new Date();
-      d.setDate(today.getDate() - i);
-      return d.toISOString().split("T")[0];
-    }).reverse();
-
-    const baseline = [
-      { id: "base_rev_1", date: dates[0], type: "revenue", amount: 75000, description: "Bulk Printer Paper and Notebooks delivery", category: "Office Supplies" },
-      { id: "base_exp_1", date: dates[0], type: "expense", amount: 55000, description: "Paper and stationary raw material wholesale restock", category: "Wages & Materials" },
-      
-      { id: "base_rev_2", date: dates[1], type: "revenue", amount: 82000, description: "USB-C Cable and Adapter wholesale supply", category: "Electronics" },
-      { id: "base_exp_2", date: dates[1], type: "expense", amount: 60000, description: "Electronic units import import fee", category: "Wages & Materials" },
-      
-      { id: "base_rev_3", date: dates[2], type: "revenue", amount: 68000, description: "Talcum powder cosmetics retail stockist delivery", category: "Cosmetics" },
-      { id: "base_exp_3", date: dates[2], type: "expense", amount: 48000, description: "Logistics delivery and shipping fleet settlement", category: "Transport" },
-      
-      { id: "base_rev_4", date: dates[3], type: "revenue", amount: 79000, description: "LED Bulb 12W commercial lighting contract", category: "Electronics" },
-      { id: "base_exp_4", date: dates[3], type: "expense", amount: 58000, description: "Daily wages for packaging workers and handlers", category: "Wages & Materials" },
-      
-      { id: "base_rev_5", date: dates[4], type: "revenue", amount: 85000, description: "Wireless keyboard and mouse bulk sales", category: "Electronics" },
-      { id: "base_exp_5", date: dates[4], type: "expense", amount: 62000, description: "Warehouse facility rental and utilities", category: "Rent & Utilities" },
-      
-      { id: "base_rev_6", date: dates[5], type: "revenue", amount: 71000, description: "Thermal POS paper roll wholesale batch", category: "Office Supplies" },
-      { id: "base_exp_6", date: dates[5], type: "expense", amount: 50000, description: "Supplier payout for cleaning sprays and utilities", category: "Rent & Utilities" },
-      
-      { id: "base_rev_7", date: dates[6], type: "revenue", amount: 75000, description: "Packaging boxes custom printing order", category: "Packaging" },
-      { id: "base_exp_7", date: dates[6], type: "expense", amount: 62000, description: "Cloud servers and billing subscription", category: "Services" }
-    ];
-
-    return [...transactions.slice().reverse(), ...baseline];
+    return [...transactions.slice().reverse()];
   }, [transactions]);
 
   const mockInvoices = useMemo(() => {
-    const baseInvoices = [
-      {
-        id: "base_inv_unpaid_1",
-        date: new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString().split("T")[0],
-        customer_name: "City Office Supplies",
-        status: "unpaid",
-        total: 32000,
-        items: [{ name: "Printer Paper A4", qty: 5000, price: 6.4, total: 32000 }]
-      },
-      {
-        id: "base_inv_unpaid_2",
-        date: new Date(Date.now() - 5 * 24 * 3600 * 1000).toISOString().split("T")[0],
-        customer_name: "Apex Tech Distributors",
-        status: "unpaid",
-        total: 18000,
-        items: [{ name: "USB-C Cable", qty: 3600, price: 5.0, total: 18000 }]
-      }
-    ];
-
-    return [...invoices, ...baseInvoices];
+    return [...invoices];
   }, [invoices]);
 
   const sortedMockTransactions = useMemo(() => {
@@ -1560,13 +1511,13 @@ BizPilot`
                     <span className="text-gray-500 font-medium">Revenue Trend:</span>
                     <span className="text-green-700 font-bold flex items-center gap-0.5">
                       <ArrowUpRight className="w-3.5 h-3.5 shrink-0" />
-                      ↑12%
+                      ↑8.5%
                     </span>
                   </div>
                   <div className="flex items-center justify-between border-b border-gray-100 pb-1.5">
                     <span className="text-gray-550 font-medium">Low Stock:</span>
                     <span className="text-red-700 font-semibold max-w-[120px] truncate" title={lowStockProducts.length > 0 ? lowStockProducts[0].name : "Printer Paper"}>
-                      {lowStockProducts.length > 0 ? lowStockProducts[0].name.split(' ')[0] : "Printer Paper"}
+                      {lowStockProducts.length > 0 ? lowStockProducts[0].name : "Printer Paper"}
                     </span>
                   </div>
                   <div className="flex items-center justify-between border-b border-gray-100 pb-1.5">
@@ -1623,7 +1574,7 @@ BizPilot`
                     <div className="mt-3 bg-teal-50/50 rounded-lg p-2.5 border border-teal-100 text-[10px] text-teal-850 font-medium flex flex-col gap-2">
                       <div>
                         <span className="font-bold text-teal-900 block mb-0.5 uppercase tracking-widest text-[8px]">AI Recommendation</span>
-                        Restock {targetProduct.name.split(' ')[0]} today.
+                        Restock {targetProduct.name} today.
                       </div>
                       <button
                         onClick={() => handleRequestRestock(targetProduct, 100)}

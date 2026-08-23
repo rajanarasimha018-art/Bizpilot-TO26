@@ -816,7 +816,9 @@ def copilot_chat(payload: CopilotChatRequest):
                     "name": p.get("name"),
                     "quantity": p.get("quantity", 0),
                     "minStock": p.get("minStock", 5),
-                    "supplier": p.get("supplier", "Local supplier")
+                    "supplier": p.get("supplier", "Local supplier"),
+                    "price": p.get("price", 0.0),
+                    "unitCost": p.get("unitCost", 0.0)
                 } for p in products
             ],
             "workers": workers_formatted,
