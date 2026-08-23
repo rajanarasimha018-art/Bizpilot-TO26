@@ -34,89 +34,48 @@ export default function Login({ onLoginSuccess, user }) {
     const cleanEmail = email.toLowerCase().trim();
 
     if (!cleanEmail || !password) {
-      setError("Please enter your email and password.");
+      setError("Please fill out all credential fields.");
       setLoading(false);
       return;
     }
 
     try {
-      // Step 1: Supabase Auth check
-      try {
-        const { data, error: sbErr } = await supabase.auth.signInWithPassword({
-          email: cleanEmail,
-          password: password
-        });
-        if (sbErr) {
-          console.warn("Supabase Auth sign-in error, trying auto-registration fallback...", sbErr);
-          if (sbErr.message?.includes("Invalid login credentials") || sbErr.status === 400 || sbErr.message?.includes("Email not confirmed")) {
-            const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
-              email: cleanEmail,
-              password: password,
-              options: {
-                data: {
-                  name: cleanEmail.split("@")[0],
-                  businessName: "BizPilot Business",
-                  businessType: "Wholesale & Distribution",
-                  currency: "INR"
-                }
-              }
-            });
-            if (signUpErr) throw signUpErr;
-          } else {
-            throw sbErr;
-          }
-        }
-      } catch (sbErr) {
-        console.warn("Supabase Auth sign-in failed, trying local fallback:", sbErr);
+      const { data, error: sbErr } = await supabase.auth.signInWithPassword({
+        email: cleanEmail,
+        password: password
+      });
+
+      if (sbErr) {
+        throw sbErr;
       }
 
-      // Step 2: Sync session and load database with backend server
-      let profile = null;
-      try {
-        const res = await fetch("/api/auth/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: cleanEmail, password })
-        });
-        if (res.ok) {
-          const data = await res.json();
-          profile = data.profile;
-        } else {
-          console.warn("Server login returned non-ok status, falling back to local session...");
-        }
-      } catch (serverErr) {
-        console.warn("Server login failed, falling back to local session...", serverErr);
+      const sessionUser = data.user;
+      if (!sessionUser) {
+        throw new Error("No user returned from authentication.");
       }
 
-      if (!profile) {
-        profile = {
-          name: cleanEmail.split("@")[0],
-          email: cleanEmail,
-          businessName: "BizPilot Business",
-          businessType: "Wholesale & Distribution",
-          currency: "INR"
-        };
-      }
-
-      // Step 3: Remember me handling
       if (rememberMe) {
         localStorage.setItem("bizpilot_remembered_email", cleanEmail);
       } else {
         localStorage.removeItem("bizpilot_remembered_email");
       }
 
-      // Step 4: Success
-      localStorage.setItem("bizpilot_profile", JSON.stringify(profile));
+      const meta = sessionUser.user_metadata || {};
+      const profile = {
+        email: sessionUser.email,
+        name: meta.name || sessionUser.email.split("@")[0],
+        businessName: meta.businessName || "BizPilot Business",
+        businessType: meta.businessType || "Wholesale & Distribution",
+        currency: meta.currency || "INR"
+      };
+
       onLoginSuccess(profile);
       navigate("/dashboard");
     } catch (err) {
       console.error("Login failure:", err);
-      if (err.message?.includes("Invalid login credentials") || err.message?.includes("invalid_credentials")) {
-        msg = "Incorrect password or credentials for this registered email.";
-      } else if (err.message?.includes("already registered") || err.message?.includes("Email already in use")) {
-        msg = "Incorrect password for this registered email.";
-      } else {
-        msg = err.message || msg;
+      let msg = "Invalid email or password.";
+      if (err.message) {
+        msg = err.message;
       }
       setError(msg);
     } finally {
@@ -131,56 +90,35 @@ export default function Login({ onLoginSuccess, user }) {
     const demoPassword = "demo12345";
 
     try {
-      try {
-        const { data, error: sbErr } = await supabase.auth.signInWithPassword({
-          email: demoEmail,
-          password: demoPassword
-        });
-        if (sbErr) {
-          const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
-            email: demoEmail,
-            password: demoPassword,
-            options: {
-              data: {
-                name: "Siddu",
-                businessName: "Gamig Solar Solutions",
-                businessType: "Solar Energy Systems & Green Technology",
-                currency: "INR"
-              }
-            }
-          });
-          if (signUpErr) throw signUpErr;
-        }
-      } catch (sbErr) {
-        console.warn("Supabase Auth demo sign-in error, using backend fallback:", sbErr);
-      }
-
-      // Step 2: Sync with backend
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: demoEmail, password: demoPassword })
+      const { data, error: sbErr } = await supabase.auth.signInWithPassword({
+        email: demoEmail,
+        password: demoPassword
       });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.detail || data.error || "Demo login failed");
+      if (sbErr) throw sbErr;
+
+      const sessionUser = data.user;
+      if (!sessionUser) {
+        throw new Error("No user returned from authentication.");
       }
 
-      localStorage.setItem("bizpilot_profile", JSON.stringify(data.profile));
-      onLoginSuccess(data.profile);
+      const meta = sessionUser.user_metadata || {};
+      const profile = {
+        email: sessionUser.email,
+        name: meta.name || sessionUser.email.split("@")[0],
+        businessName: meta.businessName || "BizPilot Business",
+        businessType: meta.businessType || "Wholesale & Distribution",
+        currency: meta.currency || "INR"
+      };
+
+      onLoginSuccess(profile);
       navigate("/dashboard");
     } catch (err) {
-      console.error("Demo login fail, fallback:", err);
-      const demoUser = {
-        name: "Siddu",
-        email: demoEmail,
-        businessName: "Gamig Solar Solutions",
-        businessType: "Solar Energy Systems & Green Technology",
-        currency: "INR"
-      };
-      localStorage.setItem("bizpilot_profile", JSON.stringify(demoUser));
-      onLoginSuccess(demoUser);
-      navigate("/dashboard");
+      console.error("Demo login failure:", err);
+      let msg = "Invalid email or password.";
+      if (err.message) {
+        msg = err.message;
+      }
+      setError(msg);
     } finally {
       setLoading(false);
     }

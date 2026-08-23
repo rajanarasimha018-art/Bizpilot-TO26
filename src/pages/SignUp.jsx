@@ -46,65 +46,39 @@ export default function SignUp({ onLoginSuccess, user }) {
     setLoading(true);
 
     try {
-      // Step 1: Register with Supabase Auth
-      try {
-        const { data, error: sbErr } = await supabase.auth.signUp({
-          email: cleanEmail,
-          password: password,
-          options: {
-            data: {
-              name: name,
-              businessName: businessName,
-              businessType: businessType,
-              currency: currency
-            }
+      const { data, error: sbErr } = await supabase.auth.signUp({
+        email: cleanEmail,
+        password: password,
+        options: {
+          data: {
+            name: name,
+            businessName: businessName,
+            businessType: businessType,
+            currency: currency
           }
-        });
-        if (sbErr) throw sbErr;
-      } catch (sbErr) {
-        console.warn("Supabase Auth registration failed, trying local fallback:", sbErr);
-      }
-
-      // Step 2: Register details on Express backend
-      let profile = null;
-      try {
-        const payload = {
-          name,
-          email: cleanEmail,
-          password,
-          businessName,
-          businessType,
-          currency
-        };
-        const res = await fetch("/api/auth/register", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
-        });
-        if (res.ok) {
-          const data = await res.json();
-          profile = data.profile;
-        } else {
-          console.warn("Server registration returned non-ok status, falling back to local session...");
         }
-      } catch (serverErr) {
-        console.warn("Server registration failed, falling back to local session...", serverErr);
+      });
+
+      if (sbErr) {
+        throw sbErr;
       }
 
-      if (!profile) {
-        profile = {
-          name,
-          email: cleanEmail,
-          businessName,
-          businessType,
-          currency
+      if (data.session) {
+        const meta = data.user.user_metadata || {};
+        const profile = {
+          email: data.user.email,
+          name: meta.name || data.user.email.split("@")[0],
+          businessName: meta.businessName || "BizPilot Business",
+          businessType: meta.businessType || "Wholesale & Distribution",
+          currency: meta.currency || "INR"
         };
+        onLoginSuccess(profile);
+        navigate("/dashboard");
+      } else {
+        setError("");
+        alert("Account created successfully! Please check your email to confirm your registration.");
+        navigate("/login");
       }
-
-      // Step 3: Success
-      localStorage.setItem("bizpilot_profile", JSON.stringify(profile));
-      onLoginSuccess(profile);
-      navigate("/dashboard");
     } catch (err) {
       console.error("Registration error:", err);
       let msg = "Failed to create account.";
