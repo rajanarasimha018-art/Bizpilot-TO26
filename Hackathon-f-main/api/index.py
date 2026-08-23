@@ -19,6 +19,14 @@ if backend_dir not in sys.path:
 
 try:
     from backend.main import app
+    
+    # Diagnostic middleware to expose the request path in response headers
+    @app.middleware("http")
+    async def debug_path_middleware(request, call_next):
+        response = await call_next(request)
+        response.headers["X-Debug-Fastapi-Path"] = request.url.path
+        return response
+        
 except Exception as e:
     import traceback
     from fastapi import FastAPI
