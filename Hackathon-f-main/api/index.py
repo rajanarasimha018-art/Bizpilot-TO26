@@ -20,6 +20,15 @@ if backend_dir not in sys.path:
 try:
     from backend.main import app
     
+    # Diagnostic health endpoint
+    @app.get("/api/health")
+    def health_endpoint():
+        return {
+            "status": "ok",
+            "runtime": "python",
+            "service": "bizpilot-api"
+        }
+    
     # Diagnostic middleware to expose the request path in response headers
     @app.middleware("http")
     async def debug_path_middleware(request, call_next):
@@ -32,6 +41,16 @@ except Exception as e:
     from fastapi import FastAPI
     app = FastAPI()
     
+    @app.get("/api/health")
+    def health_endpoint_fallback():
+        return {
+            "status": "error",
+            "runtime": "python",
+            "service": "bizpilot-api",
+            "exception": str(e),
+            "traceback": traceback.format_exc()
+        }
+    
     @app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"])
     def catch_all(path: str):
         return {
@@ -39,4 +58,3 @@ except Exception as e:
             "exception": str(e),
             "traceback": traceback.format_exc()
         }
-
