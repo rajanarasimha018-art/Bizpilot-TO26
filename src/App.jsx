@@ -5,6 +5,7 @@ import LandingPage from "./pages/LandingPage";
 import Auth from "./pages/Auth";
 import Login from "./pages/Login";
 import SignUp from "./pages/SignUp";
+import AuthCallback from "./pages/AuthCallback";
 import Dashboard from "./pages/Dashboard";
 import Inventory from "./pages/Inventory";
 import Invoices from "./pages/Invoices";
@@ -290,6 +291,11 @@ export default function App() {
         <Route
     path="/signup"
     element={<SignUp onLoginSuccess={handleLoginSuccess} user={user} />}
+  />
+
+        <Route
+    path="/auth/callback"
+    element={<AuthCallback />}
   />
 
         {

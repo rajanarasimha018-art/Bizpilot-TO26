@@ -314,3 +314,98 @@ body:not(.crt-active) section.border-gray-200.bg-white.backdrop-blur-xl:hover {
 .animate-slide-up {
   animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+/* Premium Dark Mode Styling Overrides */
+.dark-theme-active {
+  background-color: #090d16 !important; /* Deep charcoal navy background */
+  color: #f8fafc !important;
+}
+
+.dark-theme-active .login-card-container {
+  background-color: #121a2e !important; /* Premium dark card */
+  border-color: #1e293b !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5) !important;
+}
+
+.dark-theme-active .login-text-title {
+  color: #ffffff !important;
+}
+
+.dark-theme-active .login-text-description,
+.dark-theme-active .login-text-label {
+  color: #94a3b8 !important;
+}
+
+.dark-theme-active .login-input-field {
+  background-color: #0b0f19 !important;
+  border-color: #1e293b !important;
+  color: #ffffff !important;
+}
+
+.dark-theme-active .login-input-field:focus {
+  border-color: #0d9488 !important;
+  box-shadow: 0 0 0 1px #0d9488 !important;
+}
+
+.dark-theme-active .login-remember-me-text {
+  color: #cbd5e1 !important;
+}
+
+.dark-theme-active .login-divider-line {
+  border-color: #1e293b !important;
+}
+
+.dark-theme-active .login-divider-text {
+  background-color: #121a2e !important;
+  color: #475569 !important;
+}
+
+.dark-theme-active .login-demo-btn {
+  background-color: #121a2e !important;
+  border-color: #1e293b !important;
+  color: #2dd4bf !important;
+}
+
+.dark-theme-active .login-demo-btn:hover {
+  background-color: #1e293b !important;
+  color: #2dd4bf !important;
+}
+
+.dark-theme-active .judge-demo-card {
+  background-color: #0b0f19 !important;
+  border-color: #1e293b !important;
+}
+
+.dark-theme-active .judge-demo-title {
+  color: #2dd4bf !important;
+}
+
+.dark-theme-active .judge-demo-text {
+  color: #94a3b8 !important;
+}
+
+.dark-theme-active .judge-demo-label {
+  color: #475569 !important;
+}
+
+.dark-theme-active .judge-demo-value {
+  color: #cbd5e1 !important;
+  background-color: #1e293b !important;
+}
+
+.dark-theme-active .brand-title-text {
+  color: #ffffff !important;
+}
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in,
+  .animate-slide-up,
+  .transition-all,
+  .duration-300,
+  .animate-pulse-slow {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+

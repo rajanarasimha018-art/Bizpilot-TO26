@@ -50,6 +50,7 @@ export default function SignUp({ onLoginSuccess, user }) {
         email: cleanEmail,
         password: password,
         options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
           data: {
             name: name,
             businessName: businessName,

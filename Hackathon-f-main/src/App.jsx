@@ -5,6 +5,7 @@ import Layout from "./components/Layout";
 import LandingPage from "./pages/LandingPage";
 import Login from "./pages/Login";
 import SignUp from "./pages/SignUp";
+import AuthCallback from "./pages/AuthCallback";
 import Dashboard from "./pages/Dashboard";
 import Inventory from "./pages/Inventory";
 import Invoices from "./pages/Invoices";
@@ -610,6 +611,7 @@ export default function App() {
         <Route path="/auth" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<Login onLoginSuccess={handleLoginSuccess} user={user} />} />
         <Route path="/signup" element={<SignUp onLoginSuccess={handleLoginSuccess} user={user} />} />
+        <Route path="/auth/callback" element={<AuthCallback />} />
 
         {
     /* Protected BizPilot Platform Routes */
