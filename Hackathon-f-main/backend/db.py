@@ -12,6 +12,8 @@ logging.basicConfig(level=logging.INFO)
 
 # Database file for local fallback
 DB_FILE = os.path.join(os.path.dirname(__file__), "data_db.json")
+TMP_DB_FILE = "/tmp/data_db.json"
+IS_VERCEL = os.getenv("VERCEL") == "1" or os.environ.get("VERCEL") == "1"
 
 class JSONCollection:
     def __init__(self, db_instance, collection_name):
@@ -136,22 +138,53 @@ class JSONDatabase:
     def __init__(self):
         self._ensure_file_exists()
 
+    def _get_target_path(self):
+        if IS_VERCEL:
+            return TMP_DB_FILE
+        return DB_FILE
+
     def _ensure_file_exists(self):
-        if not os.path.exists(DB_FILE):
-            with open(DB_FILE, "w", encoding="utf-8") as f:
-                json.dump({}, f)
+        target = self._get_target_path()
+        if IS_VERCEL:
+            if not os.path.exists(TMP_DB_FILE):
+                try:
+                    if os.path.exists(DB_FILE):
+                        with open(DB_FILE, "r", encoding="utf-8") as f:
+                            data = json.load(f)
+                    else:
+                        data = {}
+                    with open(TMP_DB_FILE, "w", encoding="utf-8") as f:
+                        json.dump(data, f, indent=2, default=str)
+                except Exception as e:
+                    logger.error(f"Failed to initialize tmp database file: {e}")
+        else:
+            if not os.path.exists(DB_FILE):
+                with open(DB_FILE, "w", encoding="utf-8") as f:
+                    json.dump({}, f)
 
     def _load_db(self):
         self._ensure_file_exists()
+        target = self._get_target_path()
         try:
-            with open(DB_FILE, "r", encoding="utf-8") as f:
+            with open(target, "r", encoding="utf-8") as f:
                 return json.load(f)
         except Exception:
+            if IS_VERCEL and os.path.exists(DB_FILE):
+                try:
+                    with open(DB_FILE, "r", encoding="utf-8") as f:
+                        return json.load(f)
+                except Exception:
+                    pass
             return {}
 
     def _save_db(self, data):
-        with open(DB_FILE, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2, default=str)
+        self._ensure_file_exists()
+        target = self._get_target_path()
+        try:
+            with open(target, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2, default=str)
+        except Exception as e:
+            logger.error(f"Error saving database: {e}")
 
     def __getattr__(self, name):
         return JSONCollection(self, name)

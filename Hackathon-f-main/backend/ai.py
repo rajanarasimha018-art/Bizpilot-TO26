@@ -49,7 +49,7 @@ def extract_bill_from_image(image_bytes: bytes, mime_type: str) -> dict:
         image_part = types.Part.from_bytes(data=image_bytes, mime_type=mime_type)
         
         response = client.models.generate_content(
-            model='gemini-2.5-flash',
+            model='gemini-3.6-flash',
             contents=[image_part, prompt],
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
@@ -106,7 +106,7 @@ def generate_report_recommendations(sales_summary: dict) -> list:
     try:
         logger.info("Requesting recommendations from Gemini...")
         response = client.models.generate_content(
-            model='gemini-2.5-flash',
+            model='gemini-3.6-flash',
             contents=prompt,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
@@ -535,7 +535,7 @@ def ask_copilot_assistant(user_query: str, business_context: dict) -> dict:
     try:
         logger.info(f"Sending prompt to Gemini 2.5 Flash for query: {user_query}...")
         response = client.models.generate_content(
-            model='gemini-2.5-flash',
+            model='gemini-3.6-flash',
             contents=prompt,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
@@ -551,7 +551,7 @@ def ask_copilot_assistant(user_query: str, business_context: dict) -> dict:
         try:
             # Try calling without schema constraints, just in case response_schema was the issue
             response = client.models.generate_content(
-                model='gemini-2.5-flash',
+                model='gemini-3.6-flash',
                 contents=prompt + "\nReturn a valid JSON matching the CopilotResponse format.",
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
