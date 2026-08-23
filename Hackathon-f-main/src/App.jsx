@@ -44,7 +44,7 @@ export default function App() {
         if (parsed && parsed.businessName) return parsed;
       } catch (e) {}
     }
-    return defaultProfile;
+    return null;
   });
   const theme = "emerald";
   const crtEnabled = false;
@@ -415,7 +415,7 @@ export default function App() {
     }
     localStorage.removeItem("bizpilot_profile");
     localStorage.removeItem("bizpilot_chat");
-    setUser(defaultProfile);
+    setUser(null);
   };
   const handleUpdateProfile = (profile) => {
     setUser(profile);

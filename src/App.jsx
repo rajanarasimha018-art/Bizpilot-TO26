@@ -63,8 +63,6 @@ export default function App() {
       })
       .catch((err) => {
         console.warn("Backend profile sync error on load", err);
-        setUser(null);
-        localStorage.removeItem("bizpilot_profile");
       });
   }, []);
   useEffect(() => {

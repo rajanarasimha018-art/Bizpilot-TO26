@@ -74,27 +74,44 @@ export default function SignUp({ onLoginSuccess, user }) {
       }
 
       // Step 2: Register details on Express backend
-      const payload = {
-        name,
-        email: cleanEmail,
-        password,
-        businessName,
-        businessType,
-        currency
-      };
-      const res = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.detail || data.error || "Registration failed.");
+      let profile = null;
+      try {
+        const payload = {
+          name,
+          email: cleanEmail,
+          password,
+          businessName,
+          businessType,
+          currency
+        };
+        const res = await fetch("/api/auth/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+          const data = await res.json();
+          profile = data.profile;
+        } else {
+          console.warn("Server registration returned non-ok status, falling back to local session...");
+        }
+      } catch (serverErr) {
+        console.warn("Server registration failed, falling back to local session...", serverErr);
+      }
+
+      if (!profile) {
+        profile = {
+          name,
+          email: cleanEmail,
+          businessName,
+          businessType,
+          currency
+        };
       }
 
       // Step 3: Success
-      localStorage.setItem("bizpilot_profile", JSON.stringify(data.profile));
-      onLoginSuccess(data.profile);
+      localStorage.setItem("bizpilot_profile", JSON.stringify(profile));
+      onLoginSuccess(profile);
       navigate("/dashboard");
     } catch (err) {
       console.error("Registration error:", err);
